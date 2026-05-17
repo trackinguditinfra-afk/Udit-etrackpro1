@@ -460,6 +460,20 @@ footer{text-align:center;padding:24px;font-size:11px;color:var(--sub);border-top
       </div>
     </div>
 
+    <!-- AKASH card -->
+    <div onclick="role_select('akash')" style="
+      cursor:pointer;background:rgba(139,92,246,.12);border:2px solid rgba(139,92,246,.4);
+      border-radius:16px;padding:32px 36px;text-align:center;width:200px;
+      transition:all .2s;backdrop-filter:blur(8px)"
+      onmouseover="this.style.background='rgba(139,92,246,.22)';this.style.transform='translateY(-4px)'"
+      onmouseout="this.style.background='rgba(139,92,246,.12)';this.style.transform='translateY(0)'">
+      <div style="font-size:44px;margin-bottom:12px">👤</div>
+      <div style="font-family:'Bebas Neue',sans-serif;font-size:22px;color:#a78bfa;letter-spacing:2px">AKASH</div>
+      <div style="font-size:11px;color:rgba(255,255,255,.65);margin-top:6px;line-height:1.5">
+        Analysis & Reports<br>Pages 3,5,6,7
+      </div>
+    </div>
+
     <!-- MANAGER card -->
     <div onclick="role_select('manager')" style="
       cursor:pointer;background:rgba(0,234,255,.12);border:2px solid rgba(0,234,255,.4);
@@ -5572,13 +5586,14 @@ let currentRole = null;
 
 // Tab indices (0-based) visible to each role
 const ANALYST_TABS  = [4];          // only tab index 4 = Page 5
+const AKASH_TABS    = [2,4,5,6];    // Akash: Pages 3,5,6,7 (Comparison, Theft, FE Merged, Consolidated)
 const MANAGER_TABS  = [0,1,2,3,4,5,6,7,8]; // all tabs
 
 function role_select(role){
-  if(role === 'analyst'){
-    role_activate('analyst');
+  if(role === 'analyst' || role === 'akash'){
+    role_activate(role);
   } else {
-    // Show password box
+    // Show password box (for manager/feeder)
     document.getElementById('role_pwbox').style.display = 'block';
     setTimeout(()=>document.getElementById('role_pw').focus(), 50);
   }
@@ -5614,14 +5629,16 @@ function role_activate(role){
 
   // Show/hide tabs based on role
   const allTabBtns = document.querySelectorAll('.tab-btn');
-  const allowedIdx = role === 'manager' ? MANAGER_TABS : ANALYST_TABS;
+  const allowedIdx = role === 'manager' ? MANAGER_TABS : 
+                     role === 'akash' ? AKASH_TABS : 
+                     ANALYST_TABS;
 
   allTabBtns.forEach((btn, i) => {
     btn.style.display = allowedIdx.includes(i) ? '' : 'none';
   });
 
   // Show/hide buttons based on role
-  document.getElementById('btn_save_session').style.display  = role==='manager' ? '' : 'none';
+  document.getElementById('btn_save_session').style.display  = (role==='manager' || role==='akash') ? '' : 'none';
   document.getElementById('btn_load_session').style.display  = role==='combined' ? 'none' : '';
   document.getElementById('btn_export_work').style.display   = (role==='analyst'||role==='combined') ? '' : 'none';
   document.getElementById('btn_clear').style.display         = role==='manager' ? '' : 'none';
@@ -5635,6 +5652,11 @@ function role_activate(role){
       badge.style.background = 'rgba(0,234,255,.2)';
       badge.style.color      = '#00eaff';
       badge.style.border     = '1px solid rgba(0,234,255,.4)';
+    } else if(role === 'akash'){
+      badge.textContent  = '👤 AKASH';
+      badge.style.background = 'rgba(139,92,246,.2)';
+      badge.style.color      = '#a78bfa';
+      badge.style.border     = '1px solid rgba(139,92,246,.4)';
     } else if(role === 'combined'){
       badge.textContent  = '📦 COMBINED';
       badge.style.background = 'rgba(16,185,129,.2)';
@@ -5652,6 +5674,8 @@ function role_activate(role){
   if(role === 'analyst' || role === 'combined'){
     switchTab(5);
     wt_start();
+  } else if(role === 'akash'){
+    switchTab(3); // Start on Page 3 (Comparison)
   } else {
     switchTab(1);
   }
@@ -5910,3 +5934,9 @@ function wt_formatSummary(s){
 
 </body>
 </html>
+
+
+
+
+
+Failed to download and open file
