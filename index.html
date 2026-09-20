@@ -4543,16 +4543,27 @@ function vault_safeName(name){
   return String(name||'file').replace(/[^a-zA-Z0-9._-]/g,'_');
 }
 
-// Silent background upload — never interrupts the user's actual workflow.
-// Used both for raw source files (on selection) and generated reports (on download).
+// Background upload — doesn't block the user's workflow, but no longer fails
+// silently either: a failed backup now shows a toast (was console-only before,
+// which is how a broken bucket/policy went unnoticed for uploads specifically
+// while reports kept working).
 async function vault_backgroundUpload(bucket, file, subfolder){
   try{
     const username = localStorage.getItem('etrackpro_username') || 'unknown';
     const ts = new Date().toISOString().replace(/[:.]/g,'-');
     const path = `${subfolder||username}/${ts}_${vault_safeName(file.name||'file.xlsx')}`;
     const {error} = await sb.storage.from(bucket).upload(path, file, {upsert:false, contentType:file.type||'application/octet-stream'});
-    if(error) console.warn('Vault upload failed ('+bucket+'):', error.message);
-  }catch(e){ console.warn('Vault upload error:',e); }
+    if(error){
+      console.warn('Vault upload failed ('+bucket+'):', error.message);
+      dm_showToast(`⚠ Vault backup failed (${bucket}): ${error.message}`, '#b91c1c');
+      return false;
+    }
+    return true;
+  }catch(e){
+    console.warn('Vault upload error:',e);
+    dm_showToast(`⚠ Vault backup error (${bucket}): ${e.message}`, '#b91c1c');
+    return false;
+  }
 }
 
 // Wrapper specifically for generated report blobs (ExcelJS/SheetJS outputs).
