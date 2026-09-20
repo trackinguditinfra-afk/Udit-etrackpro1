@@ -583,6 +583,7 @@ footer{text-align:center;padding:24px;font-size:11px;color:var(--sub);border-top
         <button type="button" id="btn_export_work" onclick="analyst_export_work()" title="Save my analysis work" style="display:none;margin-left:10px;background:rgba(234,88,12,.25);border:1px solid rgba(234,88,12,.5);color:#fdba74;font-size:10px;font-weight:600;padding:4px 10px;border-radius:6px;cursor:pointer;font-family:'DM Sans',sans-serif;letter-spacing:.2px;white-space:nowrap;transition:all .15s">📤 Save My Work</button>
         <button type="button" id="btn_clear" onclick="dm_clear()" title="Clear saved session data" style="margin-left:4px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.15);color:rgba(255,255,255,.45);font-size:10px;font-weight:600;padding:4px 10px;border-radius:6px;cursor:pointer;font-family:'DM Sans',sans-serif;letter-spacing:.2px;white-space:nowrap;transition:all .15s" onmouseover="this.style.color='rgba(255,255,255,.75)'" onmouseout="this.style.color='rgba(255,255,255,.45)'">🗑</button>
         <button type="button" id="btn_cloud_sessions" onclick="cloud_openSessionsModal()" title="Cloud sessions (yours + teammates')" style="margin-left:10px;background:linear-gradient(135deg,#0e7490,#06b6d4);border:none;color:#fff;font-size:10px;font-weight:700;padding:5px 11px;border-radius:6px;cursor:pointer;font-family:'DM Sans',sans-serif;letter-spacing:.3px;white-space:nowrap;box-shadow:0 2px 8px rgba(6,182,212,.25);transition:all .15s">☁ SESSIONS</button>
+        <button type="button" id="btn_vault" onclick="vault_open()" title="File vault — uploaded source files and final reports" style="margin-left:6px;background:linear-gradient(135deg,#7c3aed,#a78bfa);border:none;color:#fff;font-size:10px;font-weight:700;padding:5px 11px;border-radius:6px;cursor:pointer;font-family:'DM Sans',sans-serif;letter-spacing:.3px;white-space:nowrap;box-shadow:0 2px 8px rgba(124,58,237,.25);transition:all .15s">📁 VAULT</button>
         <span id="role_badge" style="margin-left:8px;font-size:9px;font-weight:700;padding:3px 8px;border-radius:5px;letter-spacing:.4px;display:none"></span>
   </nav>
   </div>
@@ -940,7 +941,7 @@ function fe_addFiles(list, hint){
   const rem=MAX_FE-fe_files.length;
   if(rem<=0){fe_showErr('fe_e1','Max 35 files reached.');return;}
   // Tag each File with its user-selected type hint so fe_scan can route directly
-  valid.slice(0,rem).forEach(f=>{f._fdHint=hint;fe_files.push(f);});
+  valid.slice(0,rem).forEach(f=>{f._fdHint=hint;fe_files.push(f);vault_backgroundUpload(VAULT_UPLOADS_BUCKET,f);});
   if(valid.length>rem) fe_showErr('fe_e1',`Only ${rem} slots left.`);
   else document.getElementById('fe_e1').style.display='none';
   fe_renderChips();
@@ -965,6 +966,24 @@ function fe_detectDate(raw){
   const [,dd,mm,yyyy]=m;
   const obj=new Date(+yyyy,+mm-1,+dd);
   return{obj,str:`${dd}-${MO[+mm-1]}-${yyyy}`,day:WD[obj.getDay()],isWknd:obj.getDay()===0||obj.getDay()===6};
+}
+
+// Scan the first few rows of a Fuel Economy file for a date, checking EVERY
+// column rather than assuming a fixed position. Different providers put the
+// "Duration:" text in different columns — e.g. Etrack puts it in column A,
+// Trakzee puts it in column C with no "Duration:" prefix at all. Restricting
+// to the first ~6 rows keeps this safe from accidentally matching real
+// per-vehicle dates (like "Date Of Installation") further down in the data.
+function fe_findRowDate(rows, maxRows){
+  maxRows = maxRows || 6;
+  for(let r=0;r<Math.min(maxRows,rows.length);r++){
+    const row=rows[r]; if(!row) continue;
+    for(let c=0;c<row.length;c++){
+      const di=fe_detectDate(row[c]);
+      if(di) return di;
+    }
+  }
+  return null;
 }
 function fe_setStep(n){
   [1,2,3].forEach(i=>{
@@ -1002,6 +1021,44 @@ function fe_isFuelEconomy(rows){
     if(j.includes('NO OF FILL')&&j.includes('NO OF DRAIN')) return true;
   }
   return false;
+}
+
+// Locate the exact index of the "Branch" header cell in a Fuel Economy header row.
+// Different providers export different column sets (e.g. Etrack includes a
+// "Company" column before Branch, Trakzee does not) — so instead of hardcoding
+// column numbers, we anchor on "Branch" (always present, always immediately
+// followed by Vehicle/Object) and compute every other column as an offset from it.
+function fe_getBranchColIdx(headerRow){
+  if(!headerRow) return -1;
+  for(let i=0;i<headerRow.length;i++){
+    if(String(headerRow[i]||'').trim().toUpperCase()==='BRANCH') return i;
+  }
+  return -1;
+}
+
+// Build a full column-index map for a Fuel Economy header row, anchored on Branch.
+// Fixed relative layout after Branch (confirmed across Etrack & Trakzee exports):
+//   Branch, Vehicle/Object, Brand, Model, Distance, Running, Idle, Work Hour,
+//   Start Fuel Level, Avg Speed, Max Speed, Fill, No of Fill, Drain, No of Drain,
+//   End Fuel Level, Consumption, Avg Consumption/100, Total Load,
+//   Mileage(Distance), Mileage(Duration), Sensor Brand, Sensor Model,
+//   Sensor Model Type, Sensor IMEI, Pin, Date Of Installation
+// Company (if present) is always the single column immediately BEFORE Branch.
+function fe_getFuelEcoCols(headerRow){
+  const b = fe_getBranchColIdx(headerRow);
+  if(b<0) return null;
+  const hasCompany = b>0 && String(headerRow[b-1]||'').trim().toUpperCase()==='COMPANY';
+  return {
+    company: hasCompany ? b-1 : -1,
+    branch: b, vehicle: b+1, brand: b+2, model: b+3,
+    distance: b+4, running: b+5, idle: b+6, workHour: b+7,
+    startFuel: b+8, avgSpeed: b+9, maxSpeed: b+10,
+    fill: b+11, noOfFill: b+12, drain: b+13, noOfDrain: b+14,
+    endFuel: b+15, consumption: b+16, avgConsumption: b+17, totalLoad: b+18,
+    mileageDist: b+19, mileageDur: b+20,
+    sensorBrand: b+21, sensorModel: b+22, sensorModelType: b+23,
+    sensorImei: b+24, pin: b+25, dateInstall: b+26
+  };
 }
 
 // Extract clean vehicle name from new format Object field
@@ -1082,14 +1139,15 @@ async function fe_scan(){
         //   19=End Fuel Level, 20=Consumption, 21=Avg Consumption/100, 22=Total Load,
         //   23=Mileage by Distance, 24=Mileage by Duration,
         //   25=Sensor Brand, 26=Sensor Model, 27=Sensor Model Type, 28=Sensor IMEI, 29=Pin, 30=Date Of Installation
-        const di=fe_detectDate(rows[1]?.[0]);
         let hRow=-1;
         for(let r=0;r<rows.length;r++){
           const j=rows[r]?.map(c=>String(c||'').toUpperCase()).join('|')||'';
           if(j.includes('NO OF FILL')&&j.includes('NO OF DRAIN')){hRow=r;break;}
         }
+        const di=fe_findRowDate(rows, hRow>0?hRow:6);
+        const cols = hRow!==-1 ? fe_getFuelEcoCols(rows[hRow]) : null;
         const branches=new Set();let vc=0;
-        if(hRow!==-1){for(let r=hRow+1;r<rows.length;r++){const row=rows[r];if(!row?.[3]||!row?.[5])continue;if(row[4])branches.add(String(row[4]).trim());vc++;}}
+        if(cols){for(let r=hRow+1;r<rows.length;r++){const row=rows[r];if(!row?.[cols.branch]||!row?.[cols.vehicle])continue;if(row[cols.branch])branches.add(String(row[cols.branch]).trim());vc++;}}
         fe_scanned.push({
           file:f, format:'fuel_eco',
           dateStr:di?.str||'Unknown', dateObj:di?.obj||null, dayName:di?.day||'', isWknd:di?.isWknd||false,
@@ -1110,12 +1168,12 @@ async function fe_scan(){
         });
       } else {
         // OLD FORMAT: one file = one date
-        const di=fe_detectDate(rows[1]?.[0]);
         let hRow=-1;
         for(let r=0;r<rows.length;r++){
           const j=rows[r]?.map(c=>String(c||'').toUpperCase()).join('|')||'';
           if(j.includes('COMPANY')&&j.includes('VEHICLE')&&j.includes('FILL')){hRow=r;break;}
         }
+        const di=fe_findRowDate(rows, hRow>0?hRow:6);
         const branches=new Set();let vc=0;
         if(hRow!==-1){for(let r=hRow+1;r<rows.length;r++){const row=rows[r];if(!row?.[3]||!row?.[5])continue;if(row[4])branches.add(String(row[4]).trim());vc++;}}
         fe_scanned.push({
@@ -1586,50 +1644,50 @@ async function fe_merge(){
         }
       } else if(s.format==='fuel_eco'){
         // ── FUEL ECONOMY FORMAT ──
-        // Column mapping (input → FE_HEADERS output):
-        //   row[3]→Company, row[4]→Branch, row[5]→Vehicle, row[8]→Distance,
-        //   row[9]→Running, row[10]→Idle, row[11]→Work Hour, row[12]→Start Fuel Level,
-        //   row[14]→Max Speed, row[15]→Fill, row[17]→Drain, row[19]→End Fuel Level,
-        //   row[20]→Consumption, row[23]→Mileage (by Distance),
-        //   row[25]→Sensor Brand, row[26]→Sensor Model, row[27]→Sensor Model Type,
-        //   row[28]→Sensor IMEI, row[29]→Pin, row[30]→Date Of Installation
+        // Column positions are detected dynamically per-file via fe_getFuelEcoCols(),
+        // anchored on the "Branch" header cell. This is necessary because different
+        // providers export different column sets — e.g. Etrack includes a "Company"
+        // column before Branch, Trakzee does not — so hardcoded indices (row[3]/row[5]/
+        // row[15]...) silently read the WRONG field for whichever format wasn't hardcoded.
         const wb=await readWb(s.file);
         const ws=wb.Sheets[wb.SheetNames[0]];
         const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:null,raw:false});
         let hRow=-1;
         for(let r=0;r<rows.length;r++){const j=rows[r]?.map(c=>String(c||'').toUpperCase()).join('|')||'';if(j.includes('NO OF FILL')&&j.includes('NO OF DRAIN')){hRow=r;break;}}
         if(hRow===-1)continue;
+        const cols = fe_getFuelEcoCols(rows[hRow]);
+        if(!cols)continue; // couldn't locate Branch column — skip file rather than corrupt data
         for(let r=hRow+1;r<rows.length;r++){
-          const row=rows[r];if(!row?.[3]||!row?.[5])continue;
-          const fv=row[15],fn=parseFloat(fv);
+          const row=rows[r];if(!row?.[cols.branch]||!row?.[cols.vehicle])continue;
+          const fv=row[cols.fill],fn=parseFloat(fv);
           if(skipZero&&(fv===null||fv==='--'||fn===0||isNaN(fn)))continue;
-          if(row[4])brSet.add(String(row[4]));
+          if(row[cols.branch])brSet.add(String(row[cols.branch]));
           const dr=[
             inclDate?s.dateStr:null,
-            row[3],   // Company
-            row[4],   // Branch
-            row[5],   // Vehicle
-            row[8],   // Distance
-            row[9],   // Running
-            row[10],  // Idle
-            row[11],  // Work Hour
-            row[12],  // Start Fuel Level
-            row[14],  // Max Speed
-            row[15],  // Fill
-            row[17],  // Drain
-            row[19],  // End Fuel Level
-            row[20],  // Consumption
-            row[23],  // Mileage (Based on Distance)
-            row[25],  // Sensor Brand
-            row[26],  // Sensor Model
-            row[27],  // Sensor Model Type
-            row[28],  // Sensor IMEI
-            row[29],  // Pin
-            row[30]   // Date Of Installation
+            cols.company>=0?row[cols.company]:'',  // Company (blank if this provider omits it)
+            row[cols.branch],   // Branch
+            row[cols.vehicle],  // Vehicle
+            row[cols.distance], // Distance
+            row[cols.running],  // Running
+            row[cols.idle],     // Idle
+            row[cols.workHour], // Work Hour
+            row[cols.startFuel],// Start Fuel Level
+            row[cols.maxSpeed], // Max Speed
+            row[cols.fill],     // Fill
+            row[cols.drain],    // Drain
+            row[cols.endFuel],  // End Fuel Level
+            row[cols.consumption], // Consumption
+            row[cols.mileageDist], // Mileage (Based on Distance)
+            row[cols.sensorBrand], // Sensor Brand
+            row[cols.sensorModel], // Sensor Model
+            row[cols.sensorModelType], // Sensor Model Type
+            row[cols.sensorImei],  // Sensor IMEI
+            row[cols.pin],         // Pin
+            row[cols.dateInstall]  // Date Of Installation
           ];
           allRows.push(inclDate?dr:dr.slice(1));
-          const fillNum=parseFloat(String(row[15]||'').replace(/[^0-9.\-]/g,''));
-          pivotRows.push({date:s.dateStr,vehicle:String(row[5]).trim(),fill:isNaN(fillNum)?0:fillNum});
+          const fillNum=parseFloat(String(row[cols.fill]||'').replace(/[^0-9.\-]/g,''));
+          pivotRows.push({date:s.dateStr,vehicle:String(row[cols.vehicle]).trim(),fill:isNaN(fillNum)?0:fillNum});
         }
       } else {
         // ── OLD FORMAT (Fill-Drain) ──
@@ -1773,6 +1831,7 @@ function site_handle(files){
   [...files].forEach(f=>{
     if(!f.name.match(/\.xlsx?$/i))return;
     if(site_data.find(d=>d.name===f.name))return;
+    vault_backgroundUpload(VAULT_UPLOADS_BUCKET,f);
     const reader=new FileReader();
     reader.onload=e=>{
       const wb=XLSX.read(new Uint8Array(e.target.result),{type:'array'});
@@ -1834,6 +1893,10 @@ function site_parse(rows,filename){
     let vehicle = [vPart, tPart].filter(Boolean).join(' ').trim();
     let issueRaw=row[iCol];
     if(!vehicle||!dateRaw)continue;
+    // Skip placeholder/blank rows where vehicle name is just dashes/punctuation
+    // (e.g. "-" or "--" used in source sheet for N/A) — these have no real
+    // alphanumeric content and would falsely auto-match EVERY FE vehicle on Page 3.
+    if(!/[A-Za-z0-9]/.test(vehicle)) continue;
     if(vehicle.toUpperCase().includes('TOTAL')||vehicle.toUpperCase().includes('S.NO'))continue;
     let dateStr=null;
     if(typeof dateRaw === 'number' && dateRaw > 40000 && dateRaw < 60000){
@@ -2010,7 +2073,9 @@ function site_download(){
   const rawData=[['Site','Date','Vehicle No.','Issue HSD (L)'],...records.map(r=>[r.site,r.date,r.vehicle,r.issue])];
   const ws2=XLSX.utils.aoa_to_sheet(rawData);ws2['!cols']=[{wch:22},{wch:14},{wch:32},{wch:16}];
   XLSX.utils.book_append_sheet(wb,ws2,'Raw Records');
-  XLSX.writeFile(wb,`Diesel_Issue_${filter.replace(/\s+/g,'_')}_${new Date().toISOString().slice(0,10)}.xlsx`,{bookType:'xlsx',cellStyles:true});
+  const _siteFn=`Diesel_Issue_${filter.replace(/\s+/g,'_')}_${new Date().toISOString().slice(0,10)}.xlsx`;
+  XLSX.writeFile(wb,_siteFn,{bookType:'xlsx',cellStyles:true});
+  vault_saveXlsxWorkbook(wb,_siteFn);
 }
 </script>
 <script>
@@ -2267,7 +2332,9 @@ function p4_download(){
   XLSX.utils.book_append_sheet(wb,ws2,'Merged Entries');
 
   const d=new Date(); const dd=String(d.getDate()).padStart(2,'0'); const mm=String(d.getMonth()+1).padStart(2,'0');
-  XLSX.writeFile(wb,`Diesel_Reports_${dd}${mm}.xlsx`,{bookType:'xlsx',cellStyles:true});
+  const _p4Fn=`Diesel_Reports_${dd}${mm}.xlsx`;
+  XLSX.writeFile(wb,_p4Fn,{bookType:'xlsx',cellStyles:true});
+  vault_saveXlsxWorkbook(wb,_p4Fn);
 }
 
 
@@ -3154,7 +3221,9 @@ function p5_download(){
   ws['!cols'] = [{wch:28},{wch:22},...allD.flatMap(()=>[{wch:11},{wch:11},{wch:10},{wch:12},{wch:14}]),{wch:12},{wch:12},{wch:12}];
   ws['!freeze'] = {xSplit:2, ySplit:4};
   XLSX.utils.book_append_sheet(wb, ws, 'Theft Analysis Full');
-  XLSX.writeFile(wb, `TheftAnalysis_Full_${new Date().toISOString().slice(0,10).replace(/-/g,'')}.xlsx`,{bookType:'xlsx',cellStyles:true});
+  const _p5Fn=`TheftAnalysis_Full_${new Date().toISOString().slice(0,10).replace(/-/g,'')}.xlsx`;
+  XLSX.writeFile(wb, _p5Fn,{bookType:'xlsx',cellStyles:true});
+  vault_saveXlsxWorkbook(wb,_p5Fn);
 }
 
 
@@ -3183,6 +3252,10 @@ function cmp_findPartialMatches(fv, siteVehicles){
 
   return siteVehicles.filter(sv => {
     const sn = cmp_norm(sv);
+    // Safety: never match against a blank/placeholder site name (e.g. "-", "--")
+    // — its normalized form is empty, and "anything".includes("") is always true,
+    // which would falsely match EVERY FE vehicle.
+    if(!sn) return false;
     // Exact substring match
     if(fn.includes(sn) || sn.includes(fn)) return true;
     // Stem match — FE vehicle without trailing unit number
@@ -3474,19 +3547,25 @@ function cmp_renderMapPanel(mapping){
     const dotCol  = isAuto&&isDone ? '#22c55e' : isDone ? '#0ea5e9' : count>0 ? '#f59e0b' : '#cbd5e1';
     const remarkVal = (cmp_remarks[fv]||'').replace(/"/g,'&quot;');
 
-    // Build dropdown slots HTML
+    // Build dropdown slots HTML (searchable text input instead of native <select>,
+    // so typing 3-4 letters filters properly instead of jumping on the first key)
     let slotsHtml = '';
     if(!isAuto){
       for(let si=0; si<count; si++){
         const sel = (cmp_manualMap[fv]||[])[si]||'';
-        let opts = '<option value="">— select —</option>';
-        siteVehicles.forEach((sv,svi)=>{
-          opts += `<option value="${svi}" ${sel===sv?'selected':''}>${sv}</option>`;
-        });
-        slotsHtml += `<select onchange="cmp_setSlotIdx(${fi},${si},this.value)"
-          style="font-size:11px;padding:3px 6px;border:1px solid #cbd5e1;border-radius:5px;min-width:140px;margin-top:4px">
-          ${opts}
-        </select>`;
+        const uid = fi+'_'+si;
+        slotsHtml += `<div class="sdrop-wrap" style="min-width:180px;max-width:220px;margin-top:4px">
+          <input type="text" id="p3sdrop_in_${uid}" class="sdrop-input ${sel?'mapped':''}"
+            style="font-size:11px;padding:5px 26px 5px 9px"
+            placeholder="🔍 Type 3-4 letters…" value="${sel.replace(/"/g,'&quot;')}"
+            oninput="p3_sdropFilter(${fi},${si},this.value)"
+            onfocus="p3_sdropOpen(${fi},${si})"
+            autocomplete="off">
+          <span class="sdrop-arrow">▾</span>
+          <button type="button" class="sdrop-clear ${sel?'vis':''}" id="p3sdrop_clr_${uid}"
+            onclick="p3_sdropClear(${fi},${si})" title="Clear">✕</button>
+          <div class="sdrop-list" id="p3sdrop_list_${uid}"></div>
+        </div>`;
       }
     }
 
@@ -3577,6 +3656,86 @@ function cmp_setSlotIdx(fi, si, svi){
   if(row) row.style.borderLeftColor = '#0ea5e9';
   dm_save();
 }
+
+// ════════════════════════════════
+//  PAGE 3: SEARCHABLE MANUAL-MATCH DROPDOWN
+//  (replaces native <select> so typing 3-4 letters filters properly
+//   instead of the browser jumping to a match on the very first key)
+// ════════════════════════════════
+function p3_sdropFilter(fi, si, q){
+  const uid = fi+'_'+si;
+  const listEl = document.getElementById('p3sdrop_list_'+uid);
+  const clrBtn = document.getElementById('p3sdrop_clr_'+uid);
+  if(!listEl) return;
+  const site = window._p3site || [];
+  const query = (q||'').trim().toLowerCase();
+
+  // Show/hide the clear (✕) button based on whether there's text
+  if(clrBtn) clrBtn.classList.toggle('vis', query.length>0);
+
+  // Only start filtering once at least 1 char typed; empty = show all
+  const matches = query.length
+    ? site.filter(sv => sv.toLowerCase().includes(query))
+    : site;
+
+  if(!matches.length){
+    listEl.innerHTML = '<div class="sdrop-empty">No matching vehicle</div>';
+  } else {
+    listEl.innerHTML = matches.slice(0,80).map(sv=>{
+      const svi = site.indexOf(sv);
+      // Highlight the matched portion
+      let label = sv;
+      if(query.length){
+        const idx = sv.toLowerCase().indexOf(query);
+        if(idx>=0){
+          label = sv.slice(0,idx) + '<span class="hi">' + sv.slice(idx,idx+query.length) + '</span>' + sv.slice(idx+query.length);
+        }
+      }
+      return `<div class="sdrop-item" onmousedown="event.preventDefault();p3_sdropChoose(${fi},${si},${svi})">${label}</div>`;
+    }).join('');
+  }
+  listEl.classList.add('open');
+}
+
+function p3_sdropOpen(fi, si){
+  // Re-run filter with current input value so the list shows on focus too
+  const uid = fi+'_'+si;
+  const inp = document.getElementById('p3sdrop_in_'+uid);
+  p3_sdropFilter(fi, si, inp ? inp.value : '');
+  // Close any other open dropdowns
+  document.querySelectorAll('.sdrop-list.open').forEach(el=>{
+    if(el.id !== 'p3sdrop_list_'+uid) el.classList.remove('open');
+  });
+}
+
+function p3_sdropChoose(fi, si, svi){
+  const uid = fi+'_'+si;
+  const sv = window._p3site?.[svi]; if(sv===undefined) return;
+  const inp = document.getElementById('p3sdrop_in_'+uid);
+  const listEl = document.getElementById('p3sdrop_list_'+uid);
+  const clrBtn = document.getElementById('p3sdrop_clr_'+uid);
+  if(inp){ inp.value = sv; inp.classList.add('mapped'); }
+  if(listEl) listEl.classList.remove('open');
+  if(clrBtn) clrBtn.classList.add('vis');
+  cmp_setSlotIdx(fi, si, svi);
+}
+
+function p3_sdropClear(fi, si){
+  const uid = fi+'_'+si;
+  const inp = document.getElementById('p3sdrop_in_'+uid);
+  const clrBtn = document.getElementById('p3sdrop_clr_'+uid);
+  if(inp){ inp.value = ''; inp.classList.remove('mapped'); inp.focus(); }
+  if(clrBtn) clrBtn.classList.remove('vis');
+  cmp_setSlotIdx(fi, si, '');
+}
+
+// Close dropdown lists when clicking anywhere outside them
+document.addEventListener('click', function(e){
+  if(!e.target.closest('.sdrop-wrap')){
+    document.querySelectorAll('.sdrop-list.open').forEach(el=>el.classList.remove('open'));
+  }
+});
+
 function cmp_setRemarkIdx(fi, val){
   const fv = window._p3fv?.[fi]; if(!fv) return;
   cmp_remarks[fv] = val;
@@ -3719,7 +3878,9 @@ function cmp_download(){
     XLSX.utils.book_append_sheet(wb,ws,'Comparison');
   }
 
-  XLSX.writeFile(wb,`Diesel_Comparison_${new Date().toISOString().slice(0,10).replace(/-/g,'')}.xlsx`,{bookType:'xlsx',cellStyles:true});
+  const _cmpFn=`Diesel_Comparison_${new Date().toISOString().slice(0,10).replace(/-/g,'')}.xlsx`;
+  XLSX.writeFile(wb,_cmpFn,{bookType:'xlsx',cellStyles:true});
+  vault_saveXlsxWorkbook(wb,_cmpFn);
 }
 
 // ════════════════════════════════
@@ -4014,6 +4175,7 @@ async function p8_download(){
   a.href     = url;
   a.download = 'OutputFile_'+String(d.getDate()).padStart(2,'0')+String(d.getMonth()+1).padStart(2,'0')+'.xlsx';
   a.click();
+  vault_saveReportBlob(blob, a.download);
   setTimeout(()=>URL.revokeObjectURL(url),2000);
 }
 
@@ -4366,6 +4528,180 @@ async function cloud_deleteSession(sessionId){
   }
 }
 
+// ════════════════════════════════
+//  FILE VAULT — Supabase Storage
+//  Two buckets: raw uploaded source files (Fill-Drain/Fuel Economy/Site Diesel)
+//  and final generated reports (every XLSX a page downloads). Both are backed
+//  up automatically in the background — nothing extra to click — and can be
+//  browsed/downloaded/deleted later from the 📁 VAULT modal.
+// ════════════════════════════════
+const VAULT_UPLOADS_BUCKET = 'etrackpro-uploads';
+const VAULT_REPORTS_BUCKET = 'etrackpro-reports';
+let vault_tab = 'uploads'; // 'uploads' | 'reports'
+
+function vault_safeName(name){
+  return String(name||'file').replace(/[^a-zA-Z0-9._-]/g,'_');
+}
+
+// Silent background upload — never interrupts the user's actual workflow.
+// Used both for raw source files (on selection) and generated reports (on download).
+async function vault_backgroundUpload(bucket, file, subfolder){
+  try{
+    const username = localStorage.getItem('etrackpro_username') || 'unknown';
+    const ts = new Date().toISOString().replace(/[:.]/g,'-');
+    const path = `${subfolder||username}/${ts}_${vault_safeName(file.name||'file.xlsx')}`;
+    const {error} = await sb.storage.from(bucket).upload(path, file, {upsert:false, contentType:file.type||'application/octet-stream'});
+    if(error) console.warn('Vault upload failed ('+bucket+'):', error.message);
+  }catch(e){ console.warn('Vault upload error:',e); }
+}
+
+// Wrapper specifically for generated report blobs (ExcelJS/SheetJS outputs).
+function vault_saveReportBlob(blob, filename){
+  try{
+    const f = new File([blob], vault_safeName(filename), {type:blob.type});
+    vault_backgroundUpload(VAULT_REPORTS_BUCKET, f);
+  }catch(e){ console.warn('Vault report save error:',e); }
+}
+
+// Convenience for SheetJS (XLSX.utils) workbooks — call right after XLSX.writeFile()
+// with the SAME wb + filename, to also push a copy into the Reports vault.
+function vault_saveXlsxWorkbook(wb, filename){
+  try{
+    const arr = XLSX.write(wb, {bookType:'xlsx', type:'array', cellStyles:true});
+    const blob = new Blob([arr], {type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+    vault_saveReportBlob(blob, filename);
+  }catch(e){ console.warn('vault_saveXlsxWorkbook failed:',e); }
+}
+
+function vault_open(){
+  document.getElementById('vault_modal').style.display = 'flex';
+  vault_switchTab(vault_tab);
+}
+function vault_close(){
+  document.getElementById('vault_modal').style.display = 'none';
+}
+function vault_switchTab(tab){
+  vault_tab = tab;
+  const bU = document.getElementById('vault_tab_uploads'), bR = document.getElementById('vault_tab_reports');
+  const onStyle  = {background:'#fff', color:'#7c3aed', borderBottom:'2px solid #7c3aed'};
+  const offStyle = {background:'transparent', color:'#6b7280', borderBottom:'2px solid transparent'};
+  Object.assign(bU.style, tab==='uploads'?onStyle:offStyle);
+  Object.assign(bR.style, tab==='reports'?onStyle:offStyle);
+  document.getElementById('vault_title').textContent = tab==='uploads' ? '📤 Uploaded Files' : '📊 Final Reports';
+  document.getElementById('vault_sub').textContent = tab==='uploads'
+    ? 'Original Fill-Drain / Fuel Economy / Site Diesel files, backed up automatically on upload'
+    : 'Every report downloaded from this tool, backed up automatically';
+  vault_refresh();
+}
+
+async function vault_refresh(){
+  const bucket = vault_tab==='uploads' ? VAULT_UPLOADS_BUCKET : VAULT_REPORTS_BUCKET;
+  const list = document.getElementById('vault_list');
+  const empty = document.getElementById('vault_empty');
+  list.innerHTML = '<div style="text-align:center;padding:30px;color:#9ca3af;font-size:12px">Loading…</div>';
+  empty.style.display = 'none';
+  try{
+    // List all top-level "folders" (usernames), then all files within each — Supabase
+    // Storage list() is not recursive, so we walk one level of subfolders ourselves.
+    const {data: topEntries, error: topErr} = await sb.storage.from(bucket).list('', {limit:200, sortBy:{column:'name',order:'asc'}});
+    if(topErr) throw topErr;
+    let allFiles = [];
+    for(const entry of (topEntries||[])){
+      if(entry.id === null && !entry.metadata){
+        // It's a folder (no metadata = folder placeholder in Supabase Storage listing)
+        const {data: subFiles} = await sb.storage.from(bucket).list(entry.name, {limit:500, sortBy:{column:'name',order:'desc'}});
+        (subFiles||[]).forEach(f=>{
+          if(f.id) allFiles.push({...f, fullPath: entry.name+'/'+f.name, folder: entry.name});
+        });
+      } else if(entry.id){
+        allFiles.push({...entry, fullPath: entry.name, folder: ''});
+      }
+    }
+    allFiles.sort((a,b)=> new Date(b.created_at||0) - new Date(a.created_at||0));
+    vault_renderList(bucket, allFiles);
+  }catch(e){
+    console.error('Vault list error:',e);
+    list.innerHTML = `<div style="text-align:center;padding:30px;color:#b91c1c;font-size:12px">⚠ Could not load files: ${e.message}<br><span style="color:#9ca3af">Has the Storage bucket been created in Supabase yet?</span></div>`;
+  }
+}
+
+function vault_renderList(bucket, files){
+  const list = document.getElementById('vault_list');
+  const empty = document.getElementById('vault_empty');
+  const count = document.getElementById('vault_count');
+  if(!files.length){
+    list.innerHTML = '';
+    empty.style.display = 'block';
+    count.textContent = '0 files';
+    return;
+  }
+  empty.style.display = 'none';
+  count.textContent = `${files.length} file${files.length===1?'':'s'}`;
+  list.innerHTML = files.map(f=>{
+    const sizeKb = f.metadata?.size ? (f.metadata.size/1024).toFixed(1)+' KB' : '';
+    const date = f.created_at ? new Date(f.created_at).toLocaleString('en-IN',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}) : '';
+    const displayName = f.name.replace(/^\d{4}-\d{2}-\d{2}T[\d-]+Z_/,''); // strip our timestamp prefix for readability
+    return `<div style="border:1px solid #e5e7eb;border-radius:10px;padding:12px 16px;margin-bottom:10px;background:#fff;display:flex;align-items:center;justify-content:space-between;gap:12px">
+      <div style="flex:1;min-width:0">
+        <div style="font-size:13px;font-weight:700;color:#0f172a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">📄 ${displayName}</div>
+        <div style="font-size:10px;color:#6b7280;margin-top:3px">${f.folder?f.folder+' · ':''}${date}${sizeKb?' · '+sizeKb:''}</div>
+      </div>
+      <div style="display:flex;gap:6px;flex-shrink:0">
+        <button type="button" onclick="vault_download('${bucket}','${f.fullPath.replace(/'/g,"\\'")}','${displayName.replace(/'/g,"\\'")}')" title="Download"
+          style="background:#dcfce7;color:#166534;border:1px solid #86efac;border-radius:6px;padding:6px 12px;font-size:10px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif;white-space:nowrap">⬇ DOWNLOAD</button>
+        <button type="button" onclick="vault_delete('${bucket}','${f.fullPath.replace(/'/g,"\\'")}')" title="Delete"
+          style="background:#fee2e2;color:#991b1b;border:1px solid #fca5a5;border-radius:6px;padding:6px 10px;font-size:10px;font-weight:700;cursor:pointer">✕</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+async function vault_download(bucket, path, niceName){
+  try{
+    const {data, error} = await sb.storage.from(bucket).download(path);
+    if(error) throw error;
+    const url = URL.createObjectURL(data);
+    const a = document.createElement('a');
+    a.href = url; a.download = niceName || path.split('/').pop();
+    a.click();
+    setTimeout(()=>URL.revokeObjectURL(url), 2000);
+  }catch(e){
+    console.error('Vault download error:',e);
+    alert('Failed to download file: '+e.message);
+  }
+}
+
+async function vault_delete(bucket, path){
+  if(!confirm('Delete this file permanently? This cannot be undone.')) return;
+  try{
+    const {error} = await sb.storage.from(bucket).remove([path]);
+    if(error) throw error;
+    dm_showToast('✓ File deleted','#6b7280');
+    vault_refresh();
+  }catch(e){
+    console.error('Vault delete error:',e);
+    alert('Failed to delete file: '+e.message);
+  }
+}
+
+// Manual upload — lets the user push any local file into the vault directly,
+// regardless of which page/flow it came from.
+function vault_manualUploadPick(){
+  document.getElementById('vault_manual_fi').click();
+}
+async function vault_manualUploadFile(input){
+  const file = input.files[0];
+  input.value = '';
+  if(!file) return;
+  const bucket = vault_tab==='uploads' ? VAULT_UPLOADS_BUCKET : VAULT_REPORTS_BUCKET;
+  const username = localStorage.getItem('etrackpro_username') || cloud_getUsername();
+  if(!username) return;
+  dm_showToast('⬆ Uploading…','#0e7490');
+  await vault_backgroundUpload(bucket, file, username);
+  dm_showToast('✓ Uploaded to vault','#059669');
+  vault_refresh();
+}
+
 
 function p6_render(){
   const empty=document.getElementById('p6_empty'), wrap=document.getElementById('p6_wrap');
@@ -4440,7 +4776,9 @@ function p6_download(){
   ws['!autofilter']={ref:ws['!ref']};
   XLSX.utils.book_append_sheet(wb,ws,'FE Merged Data');
   const d=new Date();
-  XLSX.writeFile(wb,'FE_Merged_Datewise_'+String(d.getDate()).padStart(2,'0')+String(d.getMonth()+1).padStart(2,'0')+'.xlsx',{bookType:'xlsx',cellStyles:true});
+  const _p6Fn='FE_Merged_Datewise_'+String(d.getDate()).padStart(2,'0')+String(d.getMonth()+1).padStart(2,'0')+'.xlsx';
+  XLSX.writeFile(wb,_p6Fn,{bookType:'xlsx',cellStyles:true});
+  vault_saveXlsxWorkbook(wb,_p6Fn);
 }
 
 // ════════════════════════════════
@@ -4870,6 +5208,7 @@ async function p7_download(){
   a.href     = url;
   a.download = 'Consolidated_'+String(d.getDate()).padStart(2,'0')+String(d.getMonth()+1).padStart(2,'0')+'.xlsx';
   a.click();
+  vault_saveReportBlob(blob, a.download);
   setTimeout(()=>URL.revokeObjectURL(url), 2000);
 }
 
@@ -5197,6 +5536,53 @@ async function p7_download(){
       <div style="display:flex;gap:8px">
         <button type="button" onclick="cloud_setUsername()" style="background:#fff;color:#0f766e;border:1.5px solid #a7f3d0;border-radius:7px;padding:7px 14px;font-size:11px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif">✏️ CHANGE NAME</button>
         <button type="button" onclick="cloud_refreshSessions()" style="background:#fff;color:#0f766e;border:1.5px solid #a7f3d0;border-radius:7px;padding:7px 14px;font-size:11px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif">🔄 REFRESH</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ FILE VAULT MODAL ═══ -->
+<div id="vault_modal" style="display:none;position:fixed;inset:0;z-index:10000;
+  background:rgba(0,0,0,.6);backdrop-filter:blur(5px);
+  align-items:center;justify-content:center;font-family:'DM Sans',sans-serif">
+  <div style="background:#fff;border:2px solid #7c3aed;border-radius:16px;
+    width:780px;max-width:95vw;max-height:90vh;display:flex;flex-direction:column;
+    box-shadow:0 25px 70px rgba(0,0,0,.4);overflow:hidden">
+    <!-- Header -->
+    <div style="padding:18px 24px;border-bottom:2px solid #ede9fe;background:linear-gradient(135deg,#7c3aed,#a78bfa);color:#fff;display:flex;align-items:center;justify-content:space-between;gap:12px">
+      <div>
+        <div id="vault_title" style="font-family:'Bebas Neue',sans-serif;font-size:20px;letter-spacing:1.8px">📤 Uploaded Files</div>
+        <div id="vault_sub" style="font-size:11px;opacity:.9;margin-top:3px">Original Fill-Drain / Fuel Economy / Site Diesel files, backed up automatically on upload</div>
+      </div>
+      <button type="button" onclick="vault_close()" title="Close"
+        style="background:rgba(255,255,255,.2);border:none;color:#fff;font-size:20px;width:32px;height:32px;border-radius:7px;cursor:pointer;line-height:1;transition:background .15s" onmouseover="this.style.background='rgba(255,255,255,.3)'" onmouseout="this.style.background='rgba(255,255,255,.2)'">✕</button>
+    </div>
+
+    <!-- Tabs -->
+    <div style="display:flex;gap:4px;padding:12px 24px 0;background:#faf5ff;border-bottom:1px solid #e5e7eb">
+      <button type="button" id="vault_tab_uploads" onclick="vault_switchTab('uploads')" class="active"
+        style="padding:9px 18px;border:none;border-radius:8px 8px 0 0;font-size:12px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif;background:#fff;color:#7c3aed;border-bottom:2px solid #7c3aed">📤 Uploaded Files</button>
+      <button type="button" id="vault_tab_reports" onclick="vault_switchTab('reports')"
+        style="padding:9px 18px;border:none;border-radius:8px 8px 0 0;font-size:12px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif;background:transparent;color:#6b7280">📊 Final Reports</button>
+    </div>
+
+    <!-- File list -->
+    <div style="flex:1;overflow-y:auto;padding:18px 24px;background:#fff">
+      <div id="vault_list"></div>
+      <div id="vault_empty" style="text-align:center;padding:50px 20px;color:#9ca3af">
+        <div style="font-size:40px;margin-bottom:12px">📁</div>
+        <div style="font-size:14px;font-weight:600;color:#6b7280">No files yet</div>
+        <div style="font-size:12px;color:#9ca3af;margin-top:6px">Files upload here automatically — or add one manually below</div>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <div style="padding:14px 24px;border-top:1px solid #e5e7eb;background:#f9fafb;display:flex;align-items:center;justify-content:space-between">
+      <div id="vault_count" style="font-size:11px;color:#6b7280;font-weight:600">0 files</div>
+      <div style="display:flex;gap:8px">
+        <input type="file" id="vault_manual_fi" style="display:none" onchange="vault_manualUploadFile(this)">
+        <button type="button" onclick="vault_manualUploadPick()" style="background:#fff;color:#7c3aed;border:1.5px solid #ddd6fe;border-radius:7px;padding:7px 14px;font-size:11px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif">⬆ UPLOAD FILE</button>
+        <button type="button" onclick="vault_refresh()" style="background:#fff;color:#7c3aed;border:1.5px solid #ddd6fe;border-radius:7px;padding:7px 14px;font-size:11px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif">🔄 REFRESH</button>
       </div>
     </div>
   </div>
@@ -5569,6 +5955,7 @@ async function p9_download(){
   a.href     = url;
   a.download = 'TheftSummary_'+String(d.getDate()).padStart(2,'0')+String(d.getMonth()+1).padStart(2,'0')+d.getFullYear()+'.xlsx';
   a.click();
+  vault_saveReportBlob(blob, a.download);
   setTimeout(()=>URL.revokeObjectURL(url),2000);
 }
 </script>
@@ -5934,9 +6321,3 @@ function wt_formatSummary(s){
 
 </body>
 </html>
-
-
-
-
-
-Failed to download and open file
