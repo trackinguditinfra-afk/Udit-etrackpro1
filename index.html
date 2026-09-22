@@ -1405,6 +1405,12 @@ function session_import_file(input){
 }
 
 function session_apply(data){
+  // Any session applied through here is assumed to be a fresh local/JSON
+  // load, not tied to a cloud row — cloud_loadSession re-sets this right
+  // after calling session_apply when it IS loading from the cloud.
+  cloud_currentSessionId = null;
+  cloud_currentSessionName = '';
+  if(typeof cloud_refreshCurrentSessionUI==='function') cloud_refreshCurrentSessionUI();
   if(data.feStore)           feStore           = data.feStore;
   if(data.siteStore)         siteStore         = data.siteStore;
   if(data.cmp_manualMap)     cmp_manualMap     = data.cmp_manualMap;
@@ -2670,20 +2676,40 @@ function p5_toggleVehicleDone(fv){
 // changed to something different, it logs who had it, what it was, what it
 // changed to, who changed it, and when — so the original entrant (usually
 // Akash) can see later exactly what a reviewer (usually the Manager) corrected.
-function p5_recordCorrection(store, byStore, corrStore, key, val){
+function p5_recordCorrection(store, byStore, corrStore, key, val, fv){
   const oldVal = store[key];
   const oldBy  = byStore[key];
   if(val===''){
     delete store[key]; delete byStore[key]; delete corrStore[key];
     return;
   }
-  if(oldVal!==undefined && oldVal!=='' && String(oldVal)!==String(val)){
-    corrStore[key] = {
-      from: oldVal, to: val,
-      fromBy: oldBy || 'akash',
-      correctedBy: currentRole || 'unknown',
-      correctedAt: new Date().toISOString()
-    };
+  // Only flag this as a "correction" (blue highlight) in the one specific
+  // case Abhinav wants surfaced: Akash has ticked the row's checkmark
+  // (approving every value in that row as reviewed), and the Manager then
+  // changes one of those values to something different. Any other edit —
+  // a row that isn't checked off, Akash editing their own values, etc. —
+  // just updates the value quietly, and clears any older correction badge
+  // that no longer applies to the current value.
+  const rowApprovedByAkash = !!cmp_vehicleDone[fv];
+  if(oldVal!==undefined && oldVal!=='' && String(oldVal)!==String(val) && rowApprovedByAkash && currentRole==='manager'){
+    // Keep the ORIGINAL Akash-approved value as "from" even if the Manager
+    // edits this same cell several times in a row — Akash should always see
+    // what they approved vs. the latest number, not just the previous edit.
+    const existing = corrStore[key];
+    const baseline = existing ? existing.from : oldVal;
+    if(String(baseline) === String(val)){
+      // Manager edited it back to exactly what Akash had — no correction anymore.
+      delete corrStore[key];
+    } else {
+      corrStore[key] = {
+        from: baseline, to: val,
+        fromBy: 'akash',
+        correctedBy: currentRole,
+        correctedAt: new Date().toISOString()
+      };
+    }
+  } else {
+    delete corrStore[key];
   }
   store[key] = val;
   byStore[key] = currentRole || oldBy || 'unknown';
@@ -2703,7 +2729,8 @@ function p5_setTheft(key, val, inputEl){
   if(!cmp_theft) cmp_theft={};
   if(!cmp_theftBy) cmp_theftBy={};
   if(!cmp_theftCorrections) cmp_theftCorrections={};
-  p5_recordCorrection(cmp_theft, cmp_theftBy, cmp_theftCorrections, key, val);
+  const i=key.lastIndexOf('__'); const fv = i>0 ? key.slice(0,i) : key;
+  p5_recordCorrection(cmp_theft, cmp_theftBy, cmp_theftCorrections, key, val, fv);
   // Live color: theme theft font if value > 0 (unless corrected — that wins)
   if(inputEl && !cmp_theftCorrections[key]){
     const n = parseFloat(val);
@@ -2712,16 +2739,17 @@ function p5_setTheft(key, val, inputEl){
     inputEl.style.color      = isTheft ? T.theftFont : '#1e293b';
     inputEl.style.fontWeight = isTheft ? '700' : '400';
   }
-  const i=key.lastIndexOf('__'); if(i>0) p5_update(key.slice(0,i));
+  if(i>0) p5_update(key.slice(0,i));
   dm_save();
 }
 function p5_setTheftTime(key, val){
   if(!cmp_theftTime) cmp_theftTime={};
   if(!cmp_theftTimeBy) cmp_theftTimeBy={};
   if(!cmp_theftTimeCorrections) cmp_theftTimeCorrections={};
-  p5_recordCorrection(cmp_theftTime, cmp_theftTimeBy, cmp_theftTimeCorrections, key, val);
   // key = fv__date__time
-  const clean=key.replace(/__time$/,''); const i=clean.lastIndexOf('__'); if(i>0) p5_update(clean.slice(0,i));
+  const clean=key.replace(/__time$/,''); const i=clean.lastIndexOf('__'); const fv = i>0 ? clean.slice(0,i) : clean;
+  p5_recordCorrection(cmp_theftTime, cmp_theftTimeBy, cmp_theftTimeCorrections, key, val, fv);
+  if(i>0) p5_update(clean.slice(0,i));
   dm_save();
 }
 function p5_setAnalysisRemark(key,val){ if(!cmp_analysisRemark)cmp_analysisRemark={}; cmp_analysisRemark[key]=val; dm_save(); }
@@ -2729,8 +2757,10 @@ function p5_setFill(key,val){
   if(!cmp_fillOverride)cmp_fillOverride={};
   if(!cmp_fillBy)cmp_fillBy={};
   if(!cmp_fillCorrections)cmp_fillCorrections={};
-  p5_recordCorrection(cmp_fillOverride, cmp_fillBy, cmp_fillCorrections, key, val);
-  const m=key.match(/^(.+)__fill__(.+)$/); if(m) p5_update(m[1]);
+  const m=key.match(/^(.+)__fill__(.+)$/);
+  const fv = m ? m[1] : key;
+  p5_recordCorrection(cmp_fillOverride, cmp_fillBy, cmp_fillCorrections, key, val, fv);
+  if(m) p5_update(m[1]);
   dm_save();
 }
 
@@ -4417,6 +4447,12 @@ function p8_vpRender(){
     `${w.size} of ${_p8vpAllVehs.length} vehicles selected`;
 }
 
+// Which cloud session (if any) is currently loaded into the workspace, so
+// "UPDATE THIS SESSION" knows what to overwrite instead of always creating
+// a new row.
+let cloud_currentSessionId = null;
+let cloud_currentSessionName = '';
+
 // ════════════════════════════════
 //  CLOUD: SIMPLE USERNAME AUTH
 // ════════════════════════════════
@@ -4447,6 +4483,7 @@ function cloud_setUsername(){
 // ════════════════════════════════
 async function cloud_openSessionsModal(){
   document.getElementById('cloud_sessions_modal').style.display = 'flex';
+  cloud_refreshCurrentSessionUI();
   cloud_refreshSessions();
 }
 
@@ -4484,15 +4521,7 @@ async function cloud_saveSession(){
   const status = document.getElementById('cloud_save_status');
   status.textContent = 'Saving...';
   try {
-    // Build FULL session data (same structure as old JSON export)
-    const sessionData = {
-      version:3, type:'session', exportedAt:new Date().toISOString(),
-      feStore: feStore ? {pivotRows:feStore.pivotRows,dates:feStore.dates,vehicles:feStore.vehicles,pmap:feStore.pmap,allRows:feStore.allRows,hdrs:feStore.hdrs,inclDate:feStore.inclDate} : null,
-      siteStore: siteStore ? {records:siteStore.records,dates:siteStore.dates,vehicles:siteStore.vehicles,pmap:siteStore.pmap,rowSums:siteStore.rowSums,colSums:siteStore.colSums,grand:siteStore.grand} : null,
-      cmp_manualMap,cmp_mapCount,cmp_remarks,cmp_mapMode,
-      cmp_theft,cmp_theftTime,cmp_theftBy,cmp_theftCorrections,cmp_theftTimeBy,cmp_theftTimeCorrections,cmp_fillBy,cmp_fillCorrections,cmp_analysisRemark,cmp_fillOverride,cmp_vehicleDone,
-      p5_activeTheme,p5_hoverColor,p5_customColors
-    };
+    const sessionData = cloud_buildSessionData();
     const {data,error} = await sb.from('sessions').insert({
       name: name,
       data: sessionData,  // full session state as JSONB
@@ -4506,6 +4535,11 @@ async function cloud_saveSession(){
     status.textContent = '✓ Saved!';
     setTimeout(()=>status.textContent='',2000);
     document.getElementById('cloud_session_name').value = '';
+    // This new row is now the "current session" — so the next edit can hit
+    // UPDATE instead of creating yet another copy.
+    cloud_currentSessionId = data.id;
+    cloud_currentSessionName = name;
+    cloud_refreshCurrentSessionUI();
     cloud_refreshSessions();
     dm_showToast('✓ Session saved to cloud','#059669');
     // Log activity
@@ -4519,6 +4553,76 @@ async function cloud_saveSession(){
     console.error('Save session error:',e);
     status.textContent = '⚠ Failed';
     alert('Failed to save session: '+e.message);
+  }
+}
+
+// Shared builder — same shape whether we're creating a new cloud session row
+// (cloud_saveSession) or overwriting the one already loaded (cloud_updateCurrentSession).
+function cloud_buildSessionData(){
+  return {
+    version:3, type:'session', exportedAt:new Date().toISOString(),
+    feStore: feStore ? {pivotRows:feStore.pivotRows,dates:feStore.dates,vehicles:feStore.vehicles,pmap:feStore.pmap,allRows:feStore.allRows,hdrs:feStore.hdrs,inclDate:feStore.inclDate} : null,
+    siteStore: siteStore ? {records:siteStore.records,dates:siteStore.dates,vehicles:siteStore.vehicles,pmap:siteStore.pmap,rowSums:siteStore.rowSums,colSums:siteStore.colSums,grand:siteStore.grand} : null,
+    cmp_manualMap,cmp_mapCount,cmp_remarks,cmp_mapMode,
+    cmp_theft,cmp_theftTime,cmp_theftBy,cmp_theftCorrections,cmp_theftTimeBy,cmp_theftTimeCorrections,cmp_fillBy,cmp_fillCorrections,cmp_analysisRemark,cmp_fillOverride,cmp_vehicleDone,
+    p5_activeTheme,p5_hoverColor,p5_customColors
+  };
+}
+
+// Overwrites the currently-loaded cloud session in place with whatever's in
+// the workspace right now — e.g. Akash loads a session, corrects a theft
+// figure, and wants that fix saved back into the SAME session rather than
+// creating a brand new one.
+async function cloud_updateCurrentSession(){
+  const username = cloud_getUsername();
+  if(!username){
+    alert('Please enter your name to save sessions.');
+    return;
+  }
+  if(!cloud_currentSessionId){
+    alert('No cloud session is currently loaded — load one first, or use "Save as New Session" below.');
+    return;
+  }
+  const status = document.getElementById('cloud_save_status');
+  status.textContent = 'Updating...';
+  try {
+    const sessionData = cloud_buildSessionData();
+    const {error} = await sb.from('sessions').update({
+      data: sessionData,
+      date_from: feStore ? (feStore.dates[0] || null) : null,
+      date_to: feStore ? (feStore.dates[feStore.dates.length-1] || null) : null,
+      row_count: feStore ? feStore.allRows.length : 0,
+      vehicle_count: feStore ? feStore.vehicles.length : 0
+    }).eq('id', cloud_currentSessionId);
+    if(error) throw error;
+    status.textContent = '✓ Updated!';
+    setTimeout(()=>status.textContent='',2000);
+    cloud_refreshSessions();
+    dm_showToast(`✓ "${cloud_currentSessionName}" updated with your changes`,'#059669');
+    await sb.from('activity_log').insert({
+      session_id: cloud_currentSessionId,
+      user_name: username,
+      action: 'updated_session',
+      details: {name: cloud_currentSessionName}
+    });
+  } catch(e){
+    console.error('Update session error:',e);
+    status.textContent = '⚠ Failed';
+    alert('Failed to update session: '+e.message);
+  }
+}
+
+// Shows/hides the "📂 Currently working on: X" banner + UPDATE button in the
+// Sessions modal, based on whether a cloud session is currently loaded.
+function cloud_refreshCurrentSessionUI(){
+  const row = document.getElementById('cloud_current_session_row');
+  const label = document.getElementById('cloud_current_session_label');
+  if(!row || !label) return;
+  if(cloud_currentSessionId){
+    label.textContent = cloud_currentSessionName || '(unnamed)';
+    row.style.display = 'block';
+  } else {
+    row.style.display = 'none';
   }
 }
 
@@ -4583,6 +4687,11 @@ async function cloud_loadSession(sessionId){
     if(error) throw error;
     // Use session_apply to restore ALL state (feStore, siteStore, cmp_*, themes)
     session_apply(data.data);
+    // Remember which cloud session this is, so later edits can be saved back
+    // into it directly via "UPDATE THIS SESSION" instead of always creating a new one.
+    cloud_currentSessionId = sessionId;
+    cloud_currentSessionName = data.name;
+    cloud_refreshCurrentSessionUI();
     // Close modal and navigate to first output page
     cloud_closeSessionsModal();
     switchTab(6);  // Go to Page 6 (FE Merged)
@@ -4610,6 +4719,11 @@ async function cloud_deleteSession(sessionId){
   try {
     const {error} = await sb.from('sessions').delete().eq('id',sessionId);
     if(error) throw error;
+    if(cloud_currentSessionId === sessionId){
+      cloud_currentSessionId = null;
+      cloud_currentSessionName = '';
+      cloud_refreshCurrentSessionUI();
+    }
     dm_showToast('✓ Session deleted','#6b7280');
     cloud_refreshSessions();
     // Log activity
@@ -5748,9 +5862,13 @@ async function p7_download(){
         <button type="button" id="cloud_save_toggle" onclick="cloud_toggleSaveForm()" style="background:none;border:none;color:#0f766e;font-size:18px;cursor:pointer;line-height:1">▼</button>
       </div>
       <div id="cloud_save_form_body">
+        <div id="cloud_current_session_row" style="display:none;margin-bottom:14px;padding:10px 12px;background:#ecfeff;border:1.5px solid #67e8f9;border-radius:8px">
+          <div style="font-size:11px;color:#0e7490;margin-bottom:8px">📂 Currently working on: <b id="cloud_current_session_label"></b> — changes here aren't saved to the cloud until you press one of the buttons below.</div>
+          <button type="button" onclick="cloud_updateCurrentSession()" style="width:100%;background:linear-gradient(135deg,#0e7490,#06b6d4);color:#fff;border:none;border-radius:8px;padding:9px 16px;font-size:12px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif;letter-spacing:.4px">🔄 UPDATE THIS SESSION (save your changes into it)</button>
+        </div>
         <input id="cloud_session_name" type="text" placeholder="Session name (e.g., 'April 2026 Full Analysis')" style="width:100%;padding:9px 13px;border:1.5px solid #a7f3d0;border-radius:8px;font-size:12px;font-family:'DM Sans',sans-serif;outline:none;box-sizing:border-box;margin-bottom:10px">
         <div style="display:flex;gap:10px;align-items:center">
-          <button type="button" onclick="cloud_saveSession()" style="flex:1;background:linear-gradient(135deg,#059669,#10b981);color:#fff;border:none;border-radius:8px;padding:9px 16px;font-size:12px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif;letter-spacing:.4px">SAVE NOW</button>
+          <button type="button" onclick="cloud_saveSession()" style="flex:1;background:linear-gradient(135deg,#059669,#10b981);color:#fff;border:none;border-radius:8px;padding:9px 16px;font-size:12px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif;letter-spacing:.4px">SAVE AS NEW SESSION</button>
           <span id="cloud_save_status" style="font-size:11px;color:#6b7280"></span>
         </div>
       </div>
