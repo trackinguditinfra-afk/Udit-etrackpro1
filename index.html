@@ -582,6 +582,7 @@ footer{text-align:center;padding:24px;font-size:11px;color:var(--sub);border-top
         <button type="button" class="tab-btn" onclick="switchTab(7)" style="font-size:10px;letter-spacing:.3px"><span class="tnum">7</span>CONSOLIDATED</button>
         <button type="button" class="tab-btn" onclick="switchTab(8)" style="font-size:10px;letter-spacing:.3px"><span class="tnum">8</span>OUTPUT FILE</button>
         <button type="button" class="tab-btn" onclick="switchTab(9)" style="font-size:10px;letter-spacing:.3px"><span class="tnum">9</span>THEFT SUMMARY</button>
+        <button type="button" class="tab-btn" onclick="switchTab(10)" style="font-size:10px;letter-spacing:.3px"><span class="tnum">10</span>SESSION TIMELINE</button>
       </nav>
     </div>
     <div class="topbar-actions">
@@ -854,7 +855,7 @@ let analystWorkTime = null; // stored when manager loads analyst JSON
 //  TAB SWITCHER
 // ════════════════════════════════
 function switchTab(n) {
-  ['p1','p2','p3','p4','p5','p6','p7','p8','p9'].forEach((id,i) => document.getElementById(id).classList.toggle('active', i===n-1));
+  ['p1','p2','p3','p4','p5','p6','p7','p8','p9','p10'].forEach((id,i) => document.getElementById(id).classList.toggle('active', i===n-1));
   document.querySelectorAll('.tab-btn').forEach((b,i) => b.classList.toggle('active', i===n-1));
   if (n===1) fe_renderPivot();
   if (n===3) cmp_render();
@@ -864,6 +865,7 @@ function switchTab(n) {
   if (n===7) p7_render();
   if (n===8) p8_render();
   if (n===9) p9_render();
+  if (n===10) p10_render();
 }
 
 // ── Standalone pivot renderer — called after merge AND when returning to Page 1 ──
@@ -4547,7 +4549,7 @@ async function cloud_saveSession(){
       session_id: data.id,
       user_name: username,
       action: 'created_session',
-      details: {name, row_count: feStore ? feStore.allRows.length : 0, vehicle_count: feStore ? feStore.vehicles.length : 0}
+      details: {name, row_count: feStore ? feStore.allRows.length : 0, vehicle_count: feStore ? feStore.vehicles.length : 0, role: currentRole || 'unknown', screen_active_ms: wt_consumeSinceCheckpoint()}
     });
   } catch(e){
     console.error('Save session error:',e);
@@ -4603,7 +4605,7 @@ async function cloud_updateCurrentSession(){
       session_id: cloud_currentSessionId,
       user_name: username,
       action: 'updated_session',
-      details: {name: cloud_currentSessionName}
+      details: {name: cloud_currentSessionName, role: currentRole || 'unknown', screen_active_ms: wt_consumeSinceCheckpoint()}
     });
   } catch(e){
     console.error('Update session error:',e);
@@ -6077,6 +6079,57 @@ async function p7_download(){
 </div>
 </div>
 
+<div id="p10" class="page">
+<div class="pg" style="max-width:99vw">
+
+  <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:14px">
+    <div>
+      <div class="sec-title" style="font-size:20px">🕒 Session Timeline
+        <span style="background:linear-gradient(135deg,#0e7490,#06b6d4);color:#fff;font-size:11px;padding:3px 12px;border-radius:10px;margin-left:8px;font-family:'DM Sans',sans-serif;font-weight:600">MANAGER ONLY</span>
+      </div>
+      <div style="font-size:11px;color:var(--muted);margin-top:2px">Har session save/update kab hua, kisne kiya, aur us update pe kitna screen time laga — sab yahan.</div>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+      <select id="p10_role_filter" onchange="p10_render()" style="font-size:12px;padding:6px 12px;border:1.5px solid var(--border);border-radius:8px;font-family:'DM Sans',sans-serif;outline:none">
+        <option value="all">All Roles</option>
+        <option value="akash">Akash Only</option>
+        <option value="manager">Manager Only</option>
+      </select>
+      <button type="button" onclick="p10_render()"
+        style="background:linear-gradient(135deg,#0e7490,#06b6d4);color:#fff;border:none;border-radius:8px;padding:7px 18px;font-size:11px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif;letter-spacing:.4px">
+        ⟳ REFRESH
+      </button>
+    </div>
+  </div>
+
+  <div id="p10_empty" class="cmp-empty">
+    <div class="big">🕒</div>
+    <h3>No Activity Yet</h3>
+    <p>Jaise hi Akash ya Manager kisi session ko save/update karenge, uska timeline yahan dikhega.</p>
+  </div>
+
+  <div id="p10_wrap" style="display:none">
+    <div class="pv-scroll">
+      <table style="border-collapse:collapse;font-size:12px;min-width:max-content;width:100%" id="p10_tbl">
+        <thead>
+          <tr>
+            <th style="background:#0e7490;color:#fff;font-size:10px;padding:8px 12px;white-space:nowrap;position:sticky;top:0">DATE &amp; TIME</th>
+            <th style="background:#0e7490;color:#fff;font-size:10px;padding:8px 12px;white-space:nowrap;position:sticky;top:0">ROLE</th>
+            <th style="background:#0e7490;color:#fff;font-size:10px;padding:8px 12px;white-space:nowrap;position:sticky;top:0">USER</th>
+            <th style="background:#0e7490;color:#fff;font-size:10px;padding:8px 12px;white-space:nowrap;position:sticky;top:0">ACTION</th>
+            <th style="background:#0e7490;color:#fff;font-size:10px;padding:8px 12px;white-space:nowrap;position:sticky;top:0">SESSION</th>
+            <th style="background:#0e7490;color:#fff;font-size:10px;padding:8px 12px;white-space:nowrap;position:sticky;top:0">SCREEN TIME (this update)</th>
+          </tr>
+        </thead>
+        <tbody id="p10_tbody"></tbody>
+      </table>
+    </div>
+    <div id="p10_rowcount" style="margin-top:8px;font-size:11px;color:var(--muted);text-align:right"></div>
+  </div>
+
+</div>
+</div>
+
 <style>
 /* Page 9 styles */
 #p9 .pvtbl thead th, #p9 table thead th { background:#0f766e;color:#fff;font-size:10px;padding:7px 10px;white-space:nowrap;position:sticky;top:0;z-index:10; }
@@ -6095,6 +6148,60 @@ async function p7_download(){
 // ════════════════════════════════
 //  PAGE 9 — THEFT SUMMARY
 // ════════════════════════════════
+// ── Page 10: Session Timeline (Manager-only) ──
+// Reads the activity_log table (already written to by cloud_saveSession /
+// cloud_updateCurrentSession) and shows, per save/update: who did it, when,
+// and how much screen time (active) was spent since the previous save/update.
+async function p10_render(){
+  const empty = document.getElementById('p10_empty');
+  const wrap  = document.getElementById('p10_wrap');
+  const tbody = document.getElementById('p10_tbody');
+  const rowcount = document.getElementById('p10_rowcount');
+  const roleFilterEl = document.getElementById('p10_role_filter');
+  const roleFilter = roleFilterEl ? roleFilterEl.value : 'all';
+  if(!tbody) return;
+  tbody.innerHTML = '<tr><td colspan="6" style="padding:14px;text-align:center;color:var(--muted)">Loading…</td></tr>';
+  empty.style.display='none'; wrap.style.display='block';
+  try{
+    const {data, error} = await sb.from('activity_log')
+      .select('*')
+      .in('action', ['created_session','updated_session'])
+      .order('created_at', {ascending:false})
+      .limit(300);
+    if(error) throw error;
+    let rows = data || [];
+    if(roleFilter !== 'all'){
+      rows = rows.filter(r => (r.details && r.details.role) === roleFilter);
+    }
+    if(!rows.length){
+      wrap.style.display='none'; empty.style.display='block';
+      return;
+    }
+    tbody.innerHTML = rows.map(r=>{
+      const when = new Date(r.created_at).toLocaleString('en-IN',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit',second:'2-digit'});
+      const role = (r.details && r.details.role) || 'unknown';
+      const roleLabel = role==='manager' ? '👔 Manager' : role==='akash' ? '🧑‍💼 Akash' : role==='analyst' ? '📊 Analyst' : role;
+      const roleColor = role==='manager' ? '#1e3a8a' : role==='akash' ? '#0f766e' : '#64748b';
+      const actionLabel = r.action==='created_session' ? '🆕 Saved (New Session)' : '🔄 Updated Session';
+      const screenMs = (r.details && typeof r.details.screen_active_ms==='number') ? r.details.screen_active_ms : null;
+      const screenStr = screenMs!=null ? wt_fmt(screenMs) : '—';
+      const sessName = (r.details && r.details.name) || '(unnamed)';
+      return `<tr style="border-bottom:1px solid var(--border)">
+        <td style="padding:7px 12px;font-family:'JetBrains Mono',monospace;font-size:11px;white-space:nowrap">${when}</td>
+        <td style="padding:7px 12px;white-space:nowrap"><span style="background:${roleColor};color:#fff;font-size:10px;padding:2px 10px;border-radius:8px;font-weight:600">${roleLabel}</span></td>
+        <td style="padding:7px 12px;white-space:nowrap">${r.user_name||'—'}</td>
+        <td style="padding:7px 12px;white-space:nowrap">${actionLabel}</td>
+        <td style="padding:7px 12px;white-space:nowrap">${sessName}</td>
+        <td style="padding:7px 12px;font-family:'JetBrains Mono',monospace;font-size:12px;color:#0e7490;font-weight:700;white-space:nowrap">${screenStr}</td>
+      </tr>`;
+    }).join('');
+    rowcount.textContent = `${rows.length} activity entr${rows.length===1?'y':'ies'}`;
+  } catch(e){
+    console.error('p10_render error:', e);
+    tbody.innerHTML = `<tr><td colspan="6" style="padding:14px;text-align:center;color:#dc2626">Failed to load timeline: ${e.message}</td></tr>`;
+  }
+}
+
 function p9_render(){
   const empty = document.getElementById('p9_empty');
   const wrap  = document.getElementById('p9_wrap');
@@ -6357,7 +6464,7 @@ let currentRole = null;
 // Tab indices (0-based) visible to each role
 const ANALYST_TABS  = [4];          // only tab index 4 = Page 5
 const AKASH_TABS    = [2,4,5,6];    // Akash: Pages 3,5,6,7 (Comparison, Theft, FE Merged, Consolidated)
-const MANAGER_TABS  = [0,1,2,3,4,5,6,7,8]; // all tabs
+const MANAGER_TABS  = [0,1,2,3,4,5,6,7,8,9]; // all tabs + Session Timeline (index 9, Manager-only)
 
 function role_select(role){
   if(role === 'analyst' || role === 'akash'){
@@ -6577,6 +6684,15 @@ const WT_IDLE_MS    = 3 * 60 * 1000;  // 3 min idle threshold
 let wt_activeMs     = 0;   // total active milliseconds
 let wt_bgMs         = 0;   // total background milliseconds
 let wt_startedAt    = null; // Date when session started
+// How much of wt_activeMs has already been "claimed" by a previous cloud
+// save/update — so each Save/Update logs only the screen time spent SINCE
+// the last one (not the running total since the page was opened).
+let wt_lastCheckpointActiveMs = 0;
+function wt_consumeSinceCheckpoint(){
+  const delta = wt_activeMs - wt_lastCheckpointActiveMs;
+  wt_lastCheckpointActiveMs = wt_activeMs;
+  return delta;
+}
 let wt_lastActivity = 0;   // timestamp of last user activity
 let wt_lastTick     = 0;   // timestamp of last ticker run
 let wt_isIdle       = false;
