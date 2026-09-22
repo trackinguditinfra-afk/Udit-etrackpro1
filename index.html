@@ -25,7 +25,10 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
 /* NAV */
 .topbar{background:linear-gradient(135deg,#001a6b 0%,#0057e7 55%,#00aaff 100%);
   box-shadow:0 4px 24px rgba(0,87,231,.4);position:sticky;top:0;z-index:200}
-.topbar-inner{max-width:1600px;margin:0 auto;padding:0 20px;display:flex;align-items:center;justify-content:space-between;height:52px;gap:12px}
+.topbar-inner{max-width:1600px;margin:0 auto;padding:0 20px;display:flex;align-items:center;height:52px;gap:12px}
+.tabs-scroll{flex:1;min-width:0;overflow-x:auto;overflow-y:hidden;scrollbar-width:none;-ms-overflow-style:none}
+.tabs-scroll::-webkit-scrollbar{display:none}
+.topbar-actions{display:flex;align-items:center;gap:4px;flex-shrink:0}
 
 /* DATA STATUS BAR */
 .data-statusbar{
@@ -45,7 +48,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
   animation:pulse 2s infinite;box-shadow:0 0 8px #00eaff;flex-shrink:0}
 .brand-name{font-family:'Bebas Neue',sans-serif;font-size:17px;color:#fff;letter-spacing:2.5px;white-space:nowrap;line-height:1}
 .brand-sub{font-size:9px;color:rgba(255,255,255,.65);letter-spacing:.4px;display:block;margin-top:2px;white-space:nowrap}
-.tabs{display:flex;gap:3px;align-items:center}
+.tabs{display:flex;gap:3px;align-items:center;width:max-content}
 .tab-btn{font-family:'DM Sans',sans-serif;font-size:11px;font-weight:600;letter-spacing:.3px;
   padding:5px 12px;border-radius:6px;border:1px solid rgba(255,255,255,.15);
   color:rgba(255,255,255,.65);background:rgba(255,255,255,.08);cursor:pointer;transition:all .15s;
@@ -568,24 +571,28 @@ footer{text-align:center;padding:24px;font-size:11px;color:var(--sub);border-top
         <span class="brand-sub">ETRACKPRO UDIT · Fuel economy</span>
       </div>
     </div>
-    <nav class="tabs">
-      <button type="button" class="tab-btn active" onclick="switchTab(1)"><span class="tnum">1</span>FILL DRAIN</button>
-      <button type="button" class="tab-btn" onclick="switchTab(2)"><span class="tnum">2</span>SITE DIESEL</button>
-      <button type="button" class="tab-btn" onclick="switchTab(3)"><span class="tnum">3</span>COMPARISON</button>
-      <button type="button" class="tab-btn" onclick="switchTab(4)"><span class="tnum">4</span>REPORTS</button>
-      <button type="button" class="tab-btn" onclick="switchTab(5)" style="font-size:10px;letter-spacing:.3px"><span class="tnum">5</span>THEFT FULL</button>
-      <button type="button" class="tab-btn" onclick="switchTab(6)" style="font-size:10px;letter-spacing:.3px"><span class="tnum">6</span>FE MERGED</button>
-      <button type="button" class="tab-btn" onclick="switchTab(7)" style="font-size:10px;letter-spacing:.3px"><span class="tnum">7</span>CONSOLIDATED</button>
-      <button type="button" class="tab-btn" onclick="switchTab(8)" style="font-size:10px;letter-spacing:.3px"><span class="tnum">8</span>OUTPUT FILE</button>
-      <button type="button" class="tab-btn" onclick="switchTab(9)" style="font-size:10px;letter-spacing:.3px"><span class="tnum">9</span>THEFT SUMMARY</button>
-        <button type="button" id="btn_save_session" onclick="session_export()" title="Save full session (encrypted)" style="margin-left:10px;background:rgba(22,163,74,.25);border:1px solid rgba(22,163,74,.5);color:#86efac;font-size:10px;font-weight:600;padding:4px 10px;border-radius:6px;cursor:pointer;font-family:'DM Sans',sans-serif;letter-spacing:.2px;white-space:nowrap;transition:all .15s" onmouseover="this.style.background='rgba(22,163,74,.4)'" onmouseout="this.style.background='rgba(22,163,74,.25)'">💾 Save</button>
-        <label id="btn_load_session" title="Load session from encrypted JSON" style="margin-left:4px;background:rgba(59,130,246,.25);border:1px solid rgba(59,130,246,.5);color:#93c5fd;font-size:10px;font-weight:600;padding:4px 10px;border-radius:6px;cursor:pointer;font-family:'DM Sans',sans-serif;letter-spacing:.2px;white-space:nowrap;display:inline-flex;align-items:center;transition:all .15s">📂 Load<input type="file" id="sess_fi" accept=".json" style="display:none" onchange="session_import_file(this)"></label>
-        <button type="button" id="btn_export_work" onclick="analyst_export_work()" title="Save my analysis work" style="display:none;margin-left:10px;background:rgba(234,88,12,.25);border:1px solid rgba(234,88,12,.5);color:#fdba74;font-size:10px;font-weight:600;padding:4px 10px;border-radius:6px;cursor:pointer;font-family:'DM Sans',sans-serif;letter-spacing:.2px;white-space:nowrap;transition:all .15s">📤 Save My Work</button>
-        <button type="button" id="btn_clear" onclick="dm_clear()" title="Clear saved session data" style="margin-left:4px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.15);color:rgba(255,255,255,.45);font-size:10px;font-weight:600;padding:4px 10px;border-radius:6px;cursor:pointer;font-family:'DM Sans',sans-serif;letter-spacing:.2px;white-space:nowrap;transition:all .15s" onmouseover="this.style.color='rgba(255,255,255,.75)'" onmouseout="this.style.color='rgba(255,255,255,.45)'">🗑</button>
-        <button type="button" id="btn_cloud_sessions" onclick="cloud_openSessionsModal()" title="Cloud sessions (yours + teammates')" style="margin-left:10px;background:linear-gradient(135deg,#0e7490,#06b6d4);border:none;color:#fff;font-size:10px;font-weight:700;padding:5px 11px;border-radius:6px;cursor:pointer;font-family:'DM Sans',sans-serif;letter-spacing:.3px;white-space:nowrap;box-shadow:0 2px 8px rgba(6,182,212,.25);transition:all .15s">☁ SESSIONS</button>
-        <button type="button" id="btn_vault" onclick="vault_open()" title="File vault — uploaded source files and final reports" style="margin-left:6px;background:linear-gradient(135deg,#7c3aed,#a78bfa);border:none;color:#fff;font-size:10px;font-weight:700;padding:5px 11px;border-radius:6px;cursor:pointer;font-family:'DM Sans',sans-serif;letter-spacing:.3px;white-space:nowrap;box-shadow:0 2px 8px rgba(124,58,237,.25);transition:all .15s">📁 VAULT</button>
-        <span id="role_badge" style="margin-left:8px;font-size:9px;font-weight:700;padding:3px 8px;border-radius:5px;letter-spacing:.4px;display:none"></span>
-  </nav>
+    <div class="tabs-scroll">
+      <nav class="tabs">
+        <button type="button" class="tab-btn active" onclick="switchTab(1)"><span class="tnum">1</span>FILL DRAIN</button>
+        <button type="button" class="tab-btn" onclick="switchTab(2)"><span class="tnum">2</span>SITE DIESEL</button>
+        <button type="button" class="tab-btn" onclick="switchTab(3)"><span class="tnum">3</span>COMPARISON</button>
+        <button type="button" class="tab-btn" onclick="switchTab(4)"><span class="tnum">4</span>REPORTS</button>
+        <button type="button" class="tab-btn" onclick="switchTab(5)" style="font-size:10px;letter-spacing:.3px"><span class="tnum">5</span>THEFT FULL</button>
+        <button type="button" class="tab-btn" onclick="switchTab(6)" style="font-size:10px;letter-spacing:.3px"><span class="tnum">6</span>FE MERGED</button>
+        <button type="button" class="tab-btn" onclick="switchTab(7)" style="font-size:10px;letter-spacing:.3px"><span class="tnum">7</span>CONSOLIDATED</button>
+        <button type="button" class="tab-btn" onclick="switchTab(8)" style="font-size:10px;letter-spacing:.3px"><span class="tnum">8</span>OUTPUT FILE</button>
+        <button type="button" class="tab-btn" onclick="switchTab(9)" style="font-size:10px;letter-spacing:.3px"><span class="tnum">9</span>THEFT SUMMARY</button>
+      </nav>
+    </div>
+    <div class="topbar-actions">
+        <button type="button" id="btn_save_session" onclick="session_export()" title="Save full session (encrypted)" style="background:rgba(22,163,74,.25);border:1px solid rgba(22,163,74,.5);color:#86efac;font-size:10px;font-weight:600;padding:4px 10px;border-radius:6px;cursor:pointer;font-family:'DM Sans',sans-serif;letter-spacing:.2px;white-space:nowrap;transition:all .15s" onmouseover="this.style.background='rgba(22,163,74,.4)'" onmouseout="this.style.background='rgba(22,163,74,.25)'">💾 Save</button>
+        <label id="btn_load_session" title="Load session from encrypted JSON" style="background:rgba(59,130,246,.25);border:1px solid rgba(59,130,246,.5);color:#93c5fd;font-size:10px;font-weight:600;padding:4px 10px;border-radius:6px;cursor:pointer;font-family:'DM Sans',sans-serif;letter-spacing:.2px;white-space:nowrap;display:inline-flex;align-items:center;transition:all .15s">📂 Load<input type="file" id="sess_fi" accept=".json" style="display:none" onchange="session_import_file(this)"></label>
+        <button type="button" id="btn_export_work" onclick="analyst_export_work()" title="Save my analysis work" style="display:none;background:rgba(234,88,12,.25);border:1px solid rgba(234,88,12,.5);color:#fdba74;font-size:10px;font-weight:600;padding:4px 10px;border-radius:6px;cursor:pointer;font-family:'DM Sans',sans-serif;letter-spacing:.2px;white-space:nowrap;transition:all .15s">📤 Save My Work</button>
+        <button type="button" id="btn_clear" onclick="dm_clear()" title="Clear saved session data" style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.15);color:rgba(255,255,255,.45);font-size:10px;font-weight:600;padding:4px 10px;border-radius:6px;cursor:pointer;font-family:'DM Sans',sans-serif;letter-spacing:.2px;white-space:nowrap;transition:all .15s" onmouseover="this.style.color='rgba(255,255,255,.75)'" onmouseout="this.style.color='rgba(255,255,255,.45)'">🗑</button>
+        <button type="button" id="btn_cloud_sessions" onclick="cloud_openSessionsModal()" title="Cloud sessions (yours + teammates')" style="background:linear-gradient(135deg,#0e7490,#06b6d4);border:none;color:#fff;font-size:10px;font-weight:700;padding:5px 11px;border-radius:6px;cursor:pointer;font-family:'DM Sans',sans-serif;letter-spacing:.3px;white-space:nowrap;box-shadow:0 2px 8px rgba(6,182,212,.25);transition:all .15s">☁ SESSIONS</button>
+        <button type="button" id="btn_vault" onclick="vault_open()" title="File vault — uploaded source files and final reports" style="background:linear-gradient(135deg,#7c3aed,#a78bfa);border:none;color:#fff;font-size:10px;font-weight:700;padding:5px 11px;border-radius:6px;cursor:pointer;font-family:'DM Sans',sans-serif;letter-spacing:.3px;white-space:nowrap;box-shadow:0 2px 8px rgba(124,58,237,.25);transition:all .15s">📁 VAULT</button>
+        <span id="role_badge" style="font-size:9px;font-weight:700;padding:3px 8px;border-radius:5px;letter-spacing:.4px;display:none"></span>
+    </div>
   </div>
 </div>
 
@@ -941,7 +948,18 @@ function fe_addFiles(list, hint){
   const rem=MAX_FE-fe_files.length;
   if(rem<=0){fe_showErr('fe_e1','Max 35 files reached.');return;}
   // Tag each File with its user-selected type hint so fe_scan can route directly
-  valid.slice(0,rem).forEach(f=>{f._fdHint=hint;fe_files.push(f);vault_backgroundUpload(VAULT_UPLOADS_BUCKET,f);});
+  const vaultCat = hint==='fuel_eco' ? 'Fuel Economy' : 'Fill-Drain';
+  valid.slice(0,rem).forEach(f=>{
+    f._fdHint=hint;
+    fe_files.push(f);
+    if(vaultCat==='Fuel Economy'){
+      // Detect the report date from the file itself (same logic as fe_scan)
+      // before backing it up, so the Vault can tag it with that date.
+      vault_detectFeDate(f).then(dateStr=>vault_backgroundUpload(VAULT_UPLOADS_BUCKET,f,vaultCat,dateStr));
+    } else {
+      vault_backgroundUpload(VAULT_UPLOADS_BUCKET,f,vaultCat);
+    }
+  });
   if(valid.length>rem) fe_showErr('fe_e1',`Only ${rem} slots left.`);
   else document.getElementById('fe_e1').style.display='none';
   fe_renderChips();
@@ -1339,7 +1357,7 @@ async function session_export(){
       feStore: feStore ? {pivotRows:feStore.pivotRows,dates:feStore.dates,vehicles:feStore.vehicles,pmap:feStore.pmap,allRows:feStore.allRows,hdrs:feStore.hdrs,inclDate:feStore.inclDate} : null,
       siteStore: siteStore ? {records:siteStore.records,dates:siteStore.dates,vehicles:siteStore.vehicles,pmap:siteStore.pmap,rowSums:siteStore.rowSums,colSums:siteStore.colSums,grand:siteStore.grand} : null,
       cmp_manualMap,cmp_mapCount,cmp_remarks,cmp_mapMode,
-      cmp_theft,cmp_theftTime,cmp_analysisRemark,cmp_fillOverride,cmp_vehicleDone,
+      cmp_theft,cmp_theftTime,cmp_theftBy,cmp_theftCorrections,cmp_theftTimeBy,cmp_theftTimeCorrections,cmp_fillBy,cmp_fillCorrections,cmp_analysisRemark,cmp_fillOverride,cmp_vehicleDone,
       p5_activeTheme,p5_hoverColor,p5_customColors
     };
     const encrypted = await crypto_encrypt(JSON.stringify(data), SESSION_PASSWORD);
@@ -1395,6 +1413,12 @@ function session_apply(data){
   if(data.cmp_mapMode)       cmp_mapMode       = data.cmp_mapMode;
   if(data.cmp_theft)         cmp_theft         = data.cmp_theft;
   if(data.cmp_theftTime)     cmp_theftTime     = data.cmp_theftTime;
+  if(data.cmp_theftBy)          cmp_theftBy          = data.cmp_theftBy;
+  if(data.cmp_theftCorrections) cmp_theftCorrections = data.cmp_theftCorrections;
+  if(data.cmp_theftTimeBy)          cmp_theftTimeBy          = data.cmp_theftTimeBy;
+  if(data.cmp_theftTimeCorrections) cmp_theftTimeCorrections = data.cmp_theftTimeCorrections;
+  if(data.cmp_fillBy)               cmp_fillBy               = data.cmp_fillBy;
+  if(data.cmp_fillCorrections)      cmp_fillCorrections      = data.cmp_fillCorrections;
   if(data.cmp_analysisRemark)cmp_analysisRemark= data.cmp_analysisRemark;
   if(data.cmp_fillOverride)  cmp_fillOverride  = data.cmp_fillOverride;
   if(data.cmp_vehicleDone)   cmp_vehicleDone   = data.cmp_vehicleDone;
@@ -1496,7 +1520,7 @@ async function analyst_export_work(){
       feStore: feStore ? {pivotRows:feStore.pivotRows,dates:feStore.dates,vehicles:feStore.vehicles,pmap:feStore.pmap,allRows:feStore.allRows,hdrs:feStore.hdrs,inclDate:feStore.inclDate} : null,
       siteStore: siteStore ? {records:siteStore.records,dates:siteStore.dates,vehicles:siteStore.vehicles,pmap:siteStore.pmap,rowSums:siteStore.rowSums,colSums:siteStore.colSums,grand:siteStore.grand} : null,
       cmp_manualMap, cmp_mapCount, cmp_remarks, cmp_mapMode,
-      cmp_theft, cmp_theftTime, cmp_analysisRemark, cmp_fillOverride, cmp_vehicleDone,
+      cmp_theft, cmp_theftTime, cmp_theftBy, cmp_theftCorrections, cmp_theftTimeBy, cmp_theftTimeCorrections, cmp_fillBy, cmp_fillCorrections, cmp_analysisRemark, cmp_fillOverride, cmp_vehicleDone,
       p5_activeTheme, p5_hoverColor, p5_customColors
     };
     const encrypted = await crypto_encrypt(JSON.stringify(data), SESSION_PASSWORD);
@@ -1831,7 +1855,7 @@ function site_handle(files){
   [...files].forEach(f=>{
     if(!f.name.match(/\.xlsx?$/i))return;
     if(site_data.find(d=>d.name===f.name))return;
-    vault_backgroundUpload(VAULT_UPLOADS_BUCKET,f);
+    vault_backgroundUpload(VAULT_UPLOADS_BUCKET,f,'Site Diesel');
     const reader=new FileReader();
     reader.onload=e=>{
       const wb=XLSX.read(new Uint8Array(e.target.result),{type:'array'});
@@ -2075,7 +2099,7 @@ function site_download(){
   XLSX.utils.book_append_sheet(wb,ws2,'Raw Records');
   const _siteFn=`Diesel_Issue_${filter.replace(/\s+/g,'_')}_${new Date().toISOString().slice(0,10)}.xlsx`;
   XLSX.writeFile(wb,_siteFn,{bookType:'xlsx',cellStyles:true});
-  vault_saveXlsxWorkbook(wb,_siteFn);
+  vault_saveXlsxWorkbook(wb,_siteFn,'Site Diesel Issue');
 }
 </script>
 <script>
@@ -2334,7 +2358,7 @@ function p4_download(){
   const d=new Date(); const dd=String(d.getDate()).padStart(2,'0'); const mm=String(d.getMonth()+1).padStart(2,'0');
   const _p4Fn=`Diesel_Reports_${dd}${mm}.xlsx`;
   XLSX.writeFile(wb,_p4Fn,{bookType:'xlsx',cellStyles:true});
-  vault_saveXlsxWorkbook(wb,_p4Fn);
+  vault_saveXlsxWorkbook(wb,_p4Fn,'Reports');
 }
 
 
@@ -2351,6 +2375,15 @@ let cmp_mapMode = {}, cmp_autoMatchCache = {};
 let cmp_theft = {}, cmp_theftTime = {}; // p5 theft inputs
 let cmp_analysisRemark = {}, cmp_fillOverride = {}; // p5 analysis remark + editable fill
 let cmp_vehicleDone = {}; // p5 vehicle done
+// cmp_theftBy: who last set each theft value ('akash'/'manager'/etc).
+// cmp_theftCorrections: when someone changes an already-set theft value to a
+// different number, we keep the before/after here so the person who entered
+// it originally (usually Akash) can see what a later reviewer (usually the
+// Manager) changed it to, and when. Same pattern for theft TIME and the
+// online-fill override — every editable Page-5 field tracks corrections.
+let cmp_theftBy = {}, cmp_theftCorrections = {};
+let cmp_theftTimeBy = {}, cmp_theftTimeCorrections = {};
+let cmp_fillBy = {}, cmp_fillCorrections = {};
 
 // ════════════════════════════════════════════════
 //  PERSISTENT MEMORY — localStorage auto-save
@@ -2366,6 +2399,12 @@ function dm_save(){
       cmp_mapMode,
       cmp_theft,
       cmp_theftTime,
+      cmp_theftBy,
+      cmp_theftCorrections,
+      cmp_theftTimeBy,
+      cmp_theftTimeCorrections,
+      cmp_fillBy,
+      cmp_fillCorrections,
       cmp_analysisRemark,
       cmp_fillOverride,
       cmp_vehicleDone,
@@ -2389,6 +2428,12 @@ function dm_load(){
     if(data.cmp_mapMode)      cmp_mapMode      = data.cmp_mapMode;
     if(data.cmp_theft)        cmp_theft        = data.cmp_theft;
     if(data.cmp_theftTime)    cmp_theftTime    = data.cmp_theftTime;
+    if(data.cmp_theftBy)          cmp_theftBy          = data.cmp_theftBy;
+    if(data.cmp_theftCorrections) cmp_theftCorrections = data.cmp_theftCorrections;
+    if(data.cmp_theftTimeBy)          cmp_theftTimeBy          = data.cmp_theftTimeBy;
+    if(data.cmp_theftTimeCorrections) cmp_theftTimeCorrections = data.cmp_theftTimeCorrections;
+    if(data.cmp_fillBy)               cmp_fillBy               = data.cmp_fillBy;
+    if(data.cmp_fillCorrections)      cmp_fillCorrections      = data.cmp_fillCorrections;
     if(data.cmp_analysisRemark) cmp_analysisRemark = data.cmp_analysisRemark;
     if(data.cmp_fillOverride) cmp_fillOverride = data.cmp_fillOverride;
     if(data.cmp_vehicleDone)  cmp_vehicleDone  = data.cmp_vehicleDone;
@@ -2404,7 +2449,7 @@ function dm_clear(){
   if(!confirm('Clear all saved session data? This cannot be undone.')) return;
   localStorage.removeItem(DM_KEY);
   cmp_manualMap={}; cmp_mapCount={}; cmp_remarks={}; cmp_mapMode={};
-  cmp_theft={}; cmp_theftTime={}; cmp_analysisRemark={}; cmp_fillOverride={}; cmp_vehicleDone={};
+  cmp_theft={}; cmp_theftTime={}; cmp_theftBy={}; cmp_theftCorrections={}; cmp_theftTimeBy={}; cmp_theftTimeCorrections={}; cmp_fillBy={}; cmp_fillCorrections={}; cmp_analysisRemark={}; cmp_fillOverride={}; cmp_vehicleDone={};
   dm_showToast('🗑 Session cleared','#ef4444');
 }
 
@@ -2620,11 +2665,47 @@ function p5_toggleVehicleDone(fv){
 }
 
 
+// Shared correction-recorder used by every editable Page-5 field (theft qty,
+// theft time, online-fill override). Whenever an already-saved value is
+// changed to something different, it logs who had it, what it was, what it
+// changed to, who changed it, and when — so the original entrant (usually
+// Akash) can see later exactly what a reviewer (usually the Manager) corrected.
+function p5_recordCorrection(store, byStore, corrStore, key, val){
+  const oldVal = store[key];
+  const oldBy  = byStore[key];
+  if(val===''){
+    delete store[key]; delete byStore[key]; delete corrStore[key];
+    return;
+  }
+  if(oldVal!==undefined && oldVal!=='' && String(oldVal)!==String(val)){
+    corrStore[key] = {
+      from: oldVal, to: val,
+      fromBy: oldBy || 'akash',
+      correctedBy: currentRole || 'unknown',
+      correctedAt: new Date().toISOString()
+    };
+  }
+  store[key] = val;
+  byStore[key] = currentRole || oldBy || 'unknown';
+}
+// Builds the "corrected" highlight (dark-blue cell, white text) + tooltip for
+// an input, given its correction record (or null if it was never corrected).
+function p5_corrStyle(corr){
+  if(!corr) return {css:'', title:''};
+  const when = new Date(corr.correctedAt).toLocaleString('en-IN',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'});
+  return {
+    css: 'background:#1e3a8a!important;color:#fff!important;',
+    title: `Was ${corr.from} (${corr.fromBy}) — corrected to ${corr.to} by ${corr.correctedBy} on ${when}`.replace(/"/g,'&quot;')
+  };
+}
+
 function p5_setTheft(key, val, inputEl){
   if(!cmp_theft) cmp_theft={};
-  if(val==='') delete cmp_theft[key]; else cmp_theft[key]=val;
-  // Live color: theme theft font if value > 0
-  if(inputEl){
+  if(!cmp_theftBy) cmp_theftBy={};
+  if(!cmp_theftCorrections) cmp_theftCorrections={};
+  p5_recordCorrection(cmp_theft, cmp_theftBy, cmp_theftCorrections, key, val);
+  // Live color: theme theft font if value > 0 (unless corrected — that wins)
+  if(inputEl && !cmp_theftCorrections[key]){
     const n = parseFloat(val);
     const T = p5_getTheme();
     const isTheft = !isNaN(n) && n > 0;
@@ -2636,7 +2717,9 @@ function p5_setTheft(key, val, inputEl){
 }
 function p5_setTheftTime(key, val){
   if(!cmp_theftTime) cmp_theftTime={};
-  if(val==='') delete cmp_theftTime[key]; else cmp_theftTime[key]=val;
+  if(!cmp_theftTimeBy) cmp_theftTimeBy={};
+  if(!cmp_theftTimeCorrections) cmp_theftTimeCorrections={};
+  p5_recordCorrection(cmp_theftTime, cmp_theftTimeBy, cmp_theftTimeCorrections, key, val);
   // key = fv__date__time
   const clean=key.replace(/__time$/,''); const i=clean.lastIndexOf('__'); if(i>0) p5_update(clean.slice(0,i));
   dm_save();
@@ -2644,7 +2727,9 @@ function p5_setTheftTime(key, val){
 function p5_setAnalysisRemark(key,val){ if(!cmp_analysisRemark)cmp_analysisRemark={}; cmp_analysisRemark[key]=val; dm_save(); }
 function p5_setFill(key,val){
   if(!cmp_fillOverride)cmp_fillOverride={};
-  if(val==='') delete cmp_fillOverride[key]; else cmp_fillOverride[key]=val;
+  if(!cmp_fillBy)cmp_fillBy={};
+  if(!cmp_fillCorrections)cmp_fillCorrections={};
+  p5_recordCorrection(cmp_fillOverride, cmp_fillBy, cmp_fillCorrections, key, val);
   const m=key.match(/^(.+)__fill__(.+)$/); if(m) p5_update(m[1]);
   dm_save();
 }
@@ -3029,15 +3114,18 @@ function p5_render(){
         ${is>0?is.toFixed(1):'—'}
       </td>`;
 
-      // FILL (editable)
+      // FILL (editable) — dark-blue/white highlight + tooltip if Manager corrected it
       const fillKey = (fv+'__fill__'+d).replace(/'/g,"\'");
       const fillVal = fOv !== undefined ? fOv : (rowFill[i]>0?rowFill[i].toFixed(1):'');
+      const fillCorr = cmp_fillCorrections[fv+'__fill__'+d];
+      const fillCorrSt = p5_corrStyle(fillCorr);
       html+=`<td data-fvd="${fvd}" style="padding:2px 4px">
         <input type="text" data-ci="${p5_inputIdx++}" value="${fillVal.toString().replace(/"/g,'&quot;')}" placeholder="—"
+          ${fillCorrSt.title?`title="${fillCorrSt.title}"`:''}
           oninput="p5_setFill('${fillKey}',this.value)"
           style="width:50px;border:1px solid #e2e8f0;border-radius:4px;padding:2px 4px;
             font-size:10px;background:#fff;color:${fillColor};font-weight:700;
-            text-align:right;font-family:'DM Sans',sans-serif">
+            text-align:right;font-family:'DM Sans',sans-serif;${fillCorrSt.css}">
       </td>`;
 
       // DIFF — font color only
@@ -3053,24 +3141,33 @@ function p5_render(){
         html+=`<td data-fvd="${fvd}" style="text-align:right;padding:3px 6px;${diffStyle}">${diffTxt}</td>`;
       }
 
-      // THEFT — red font if value > 0
+      // THEFT — red font if value > 0, dark-blue/white highlight if corrected
       const tk  = (fv+'__'+d).replace(/'/g,"\'");
       const ttk = (fv+'__'+d+'__time').replace(/'/g,"\'");
       const tv  = (cmp_theft[fv+'__'+d]||'').replace(/"/g,'&quot;');
       const ttv = (cmp_theftTime[fv+'__'+d+'__time']||'').replace(/"/g,'&quot;');
       const theftNum = parseFloat(tv);
       const theftColor = (!isNaN(theftNum) && theftNum > 0) ? T.theftFont : '#1e293b';
+      // If this value was changed after being saved once already (e.g. Manager
+      // corrected a figure Akash entered), highlight the box dark-blue/white —
+      // hover/tap it for who changed it, from what, to what, and when.
+      const corr = cmp_theftCorrections[fv+'__'+d];
+      const corrSt = p5_corrStyle(corr);
+      const timeCorr = cmp_theftTimeCorrections[fv+'__'+d+'__time'];
+      const timeCorrSt = p5_corrStyle(timeCorr);
       html+=`<td data-fvd="${fvd}" style="padding:2px 4px">
         <input type="text" data-ci="${p5_inputIdx++}" value="${tv}" placeholder="qty…"
+          ${corrSt.title?`title="${corrSt.title}"`:''}
           oninput="p5_setTheft('${tk}',this.value,this)"
-          style="width:68px;border:1px solid #e2e8f0;border-radius:4px;padding:2px 4px;font-size:10px;background:#fff;font-family:'DM Sans',sans-serif;color:${theftColor};font-weight:${theftColor==='#dc2626'?'700':'400'}">
+          style="width:68px;border:1px solid #e2e8f0;border-radius:4px;padding:2px 4px;font-size:10px;background:#fff;font-family:'DM Sans',sans-serif;color:${theftColor};font-weight:${theftColor==='#dc2626'?'700':'400'};${corrSt.css}">
       </td>`;
 
       // TIME
       html+=`<td data-fvd="${fvd}" style="padding:2px 4px">
         <input type="text" data-ci="${p5_inputIdx++}" value="${ttv}" placeholder="HH:MM…"
+          ${timeCorrSt.title?`title="${timeCorrSt.title}"`:''}
           oninput="p5_setTheftTime('${ttk}',this.value)"
-          style="width:68px;border:1px solid #e2e8f0;border-radius:4px;padding:2px 4px;font-size:10px;background:#fff;font-family:'DM Sans',sans-serif">
+          style="width:68px;border:1px solid #e2e8f0;border-radius:4px;padding:2px 4px;font-size:10px;background:#fff;font-family:'DM Sans',sans-serif;${timeCorrSt.css}">
       </td>`;
     });
 
@@ -3223,7 +3320,7 @@ function p5_download(){
   XLSX.utils.book_append_sheet(wb, ws, 'Theft Analysis Full');
   const _p5Fn=`TheftAnalysis_Full_${new Date().toISOString().slice(0,10).replace(/-/g,'')}.xlsx`;
   XLSX.writeFile(wb, _p5Fn,{bookType:'xlsx',cellStyles:true});
-  vault_saveXlsxWorkbook(wb,_p5Fn);
+  vault_saveXlsxWorkbook(wb,_p5Fn,'Theft Full');
 }
 
 
@@ -3880,7 +3977,7 @@ function cmp_download(){
 
   const _cmpFn=`Diesel_Comparison_${new Date().toISOString().slice(0,10).replace(/-/g,'')}.xlsx`;
   XLSX.writeFile(wb,_cmpFn,{bookType:'xlsx',cellStyles:true});
-  vault_saveXlsxWorkbook(wb,_cmpFn);
+  vault_saveXlsxWorkbook(wb,_cmpFn,'Comparison');
 }
 
 // ════════════════════════════════
@@ -4175,7 +4272,7 @@ async function p8_download(){
   a.href     = url;
   a.download = 'OutputFile_'+String(d.getDate()).padStart(2,'0')+String(d.getMonth()+1).padStart(2,'0')+'.xlsx';
   a.click();
-  vault_saveReportBlob(blob, a.download);
+  vault_saveReportBlob(blob, a.download, 'Output File');
   setTimeout(()=>URL.revokeObjectURL(url),2000);
 }
 
@@ -4393,7 +4490,7 @@ async function cloud_saveSession(){
       feStore: feStore ? {pivotRows:feStore.pivotRows,dates:feStore.dates,vehicles:feStore.vehicles,pmap:feStore.pmap,allRows:feStore.allRows,hdrs:feStore.hdrs,inclDate:feStore.inclDate} : null,
       siteStore: siteStore ? {records:siteStore.records,dates:siteStore.dates,vehicles:siteStore.vehicles,pmap:siteStore.pmap,rowSums:siteStore.rowSums,colSums:siteStore.colSums,grand:siteStore.grand} : null,
       cmp_manualMap,cmp_mapCount,cmp_remarks,cmp_mapMode,
-      cmp_theft,cmp_theftTime,cmp_analysisRemark,cmp_fillOverride,cmp_vehicleDone,
+      cmp_theft,cmp_theftTime,cmp_theftBy,cmp_theftCorrections,cmp_theftTimeBy,cmp_theftTimeCorrections,cmp_fillBy,cmp_fillCorrections,cmp_analysisRemark,cmp_fillOverride,cmp_vehicleDone,
       p5_activeTheme,p5_hoverColor,p5_customColors
     };
     const {data,error} = await sb.from('sessions').insert({
@@ -4538,20 +4635,65 @@ async function cloud_deleteSession(sessionId){
 const VAULT_UPLOADS_BUCKET = 'etrackpro-uploads';
 const VAULT_REPORTS_BUCKET = 'etrackpro-reports';
 let vault_tab = 'uploads'; // 'uploads' | 'reports'
+let vault_rawFiles = [];   // last-fetched files for the active tab/bucket, pre-filter/sort
+let vault_sort = 'upload_desc';   // 'upload_desc' | 'upload_asc' | 'fedate_desc' | 'fedate_asc'
+let vault_filterCat = 'all';      // 'all' or a specific category name
 
 function vault_safeName(name){
   return String(name||'file').replace(/[^a-zA-Z0-9._-]/g,'_');
+}
+
+// Category → color, used both for the Page 1 upload chips (existing) and the
+// Vault's badges (new). Falls back to a neutral gray for anything unlisted.
+const VAULT_CATEGORY_COLORS = {
+  'Fuel Economy':   {bg:'#cffafe', fg:'#0e7490', bd:'#67e8f9'},
+  'Fill-Drain':     {bg:'#dbeafe', fg:'#1e40af', bd:'#93c5fd'},
+  'Site Diesel':    {bg:'#ffedd5', fg:'#9a3412', bd:'#fdba74'},
+  'Comparison':     {bg:'#ede9fe', fg:'#5b21b6', bd:'#c4b5fd'},
+  'Reports':        {bg:'#dcfce7', fg:'#166534', bd:'#86efac'},
+  'Theft Full':     {bg:'#fee2e2', fg:'#991b1b', bd:'#fca5a5'},
+  'FE Merged':      {bg:'#e0f2fe', fg:'#075985', bd:'#7dd3fc'},
+  'Consolidated':   {bg:'#fef3c7', fg:'#92400e', bd:'#fcd34d'},
+  'Output File':    {bg:'#d1fae5', fg:'#065f46', bd:'#6ee7b7'},
+  'Theft Summary':  {bg:'#fce7f3', fg:'#9d174d', bd:'#f9a8d4'},
+  'Manual Upload':  {bg:'#f3f4f6', fg:'#374151', bd:'#d1d5db'},
+};
+function vault_categoryStyle(cat){
+  return VAULT_CATEGORY_COLORS[cat] || {bg:'#f3f4f6', fg:'#374151', bd:'#d1d5db'};
 }
 
 // Background upload — doesn't block the user's workflow, but no longer fails
 // silently either: a failed backup now shows a toast (was console-only before,
 // which is how a broken bucket/policy went unnoticed for uploads specifically
 // while reports kept working).
-async function vault_backgroundUpload(bucket, file, subfolder){
+// `category` becomes the file's TOP-LEVEL FOLDER in storage (e.g. "Fuel Economy",
+// "FE Merged", "Theft Summary") so the Vault can group and badge files by what
+// they actually are, rather than by who uploaded them.
+// Detects the Fuel Economy report date from a file's content, the same way
+// Page 1's fe_scan() does (scans first rows for the "Duration:" date near the
+// NO OF FILL/NO OF DRAIN header). Used so the Vault can tag an uploaded Fuel
+// Economy file with its report date, not just its upload timestamp.
+async function vault_detectFeDate(file){
   try{
-    const username = localStorage.getItem('etrackpro_username') || 'unknown';
+    const wb = await readWb(file);
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    const rows = XLSX.utils.sheet_to_json(ws,{header:1,defval:null,raw:false});
+    let hRow=-1;
+    for(let r=0;r<rows.length;r++){
+      const j=rows[r]?.map(c=>String(c||'').toUpperCase()).join('|')||'';
+      if(j.includes('NO OF FILL')&&j.includes('NO OF DRAIN')){hRow=r;break;}
+    }
+    const di = fe_findRowDate(rows, hRow>0?hRow:6);
+    return di?.str || null;
+  }catch(e){ return null; }
+}
+
+async function vault_backgroundUpload(bucket, file, category, dateTag){
+  try{
+    const cat = category || 'Manual Upload';
     const ts = new Date().toISOString().replace(/[:.]/g,'-');
-    const path = `${subfolder||username}/${ts}_${vault_safeName(file.name||'file.xlsx')}`;
+    const tagPart = dateTag ? `D-${vault_safeName(dateTag)}__` : '';
+    const path = `${cat}/${ts}__${tagPart}${vault_safeName(file.name||'file.xlsx')}`;
     const {error} = await sb.storage.from(bucket).upload(path, file, {upsert:false, contentType:file.type||'application/octet-stream'});
     if(error){
       console.warn('Vault upload failed ('+bucket+'):', error.message);
@@ -4567,20 +4709,21 @@ async function vault_backgroundUpload(bucket, file, subfolder){
 }
 
 // Wrapper specifically for generated report blobs (ExcelJS/SheetJS outputs).
-function vault_saveReportBlob(blob, filename){
+// `pageLabel` (e.g. "FE Merged", "Theft Summary") becomes the report's category/folder.
+function vault_saveReportBlob(blob, filename, pageLabel){
   try{
     const f = new File([blob], vault_safeName(filename), {type:blob.type});
-    vault_backgroundUpload(VAULT_REPORTS_BUCKET, f);
+    vault_backgroundUpload(VAULT_REPORTS_BUCKET, f, pageLabel);
   }catch(e){ console.warn('Vault report save error:',e); }
 }
 
 // Convenience for SheetJS (XLSX.utils) workbooks — call right after XLSX.writeFile()
 // with the SAME wb + filename, to also push a copy into the Reports vault.
-function vault_saveXlsxWorkbook(wb, filename){
+function vault_saveXlsxWorkbook(wb, filename, pageLabel){
   try{
     const arr = XLSX.write(wb, {bookType:'xlsx', type:'array', cellStyles:true});
     const blob = new Blob([arr], {type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
-    vault_saveReportBlob(blob, filename);
+    vault_saveReportBlob(blob, filename, pageLabel);
   }catch(e){ console.warn('vault_saveXlsxWorkbook failed:',e); }
 }
 
@@ -4593,6 +4736,7 @@ function vault_close(){
 }
 function vault_switchTab(tab){
   vault_tab = tab;
+  vault_filterCat = 'all'; // categories differ per tab, so reset the filter
   const bU = document.getElementById('vault_tab_uploads'), bR = document.getElementById('vault_tab_reports');
   const onStyle  = {background:'#fff', color:'#7c3aed', borderBottom:'2px solid #7c3aed'};
   const offStyle = {background:'transparent', color:'#6b7280', borderBottom:'2px solid transparent'};
@@ -4605,14 +4749,29 @@ function vault_switchTab(tab){
   vault_refresh();
 }
 
+// Parses a "dd-Mon-yyyy" string (as produced by fe_detectDate) back into a Date,
+// for sorting by report date. Returns null if it doesn't look like that format.
+function vault_parseFeDateStr(s){
+  if(!s) return null;
+  const m = String(s).match(/^(\d{2})-([A-Za-z]{3})-(\d{4})$/);
+  if(!m) return null;
+  const mi = MO.indexOf(m[2]);
+  if(mi<0) return null;
+  return new Date(+m[3], mi, +m[1]);
+}
+
 async function vault_refresh(){
   const bucket = vault_tab==='uploads' ? VAULT_UPLOADS_BUCKET : VAULT_REPORTS_BUCKET;
   const list = document.getElementById('vault_list');
   const empty = document.getElementById('vault_empty');
+  // Remember where the user was scrolled to (e.g. mid-list after deleting a
+  // file lower down) so re-rendering the list doesn't yank them back to the top.
+  const listwrap = document.getElementById('vault_listwrap');
+  const savedScroll = listwrap ? listwrap.scrollTop : 0;
   list.innerHTML = '<div style="text-align:center;padding:30px;color:#9ca3af;font-size:12px">Loading…</div>';
   empty.style.display = 'none';
   try{
-    // List all top-level "folders" (usernames), then all files within each — Supabase
+    // List all top-level "folders" (categories), then all files within each — Supabase
     // Storage list() is not recursive, so we walk one level of subfolders ourselves.
     const {data: topEntries, error: topErr} = await sb.storage.from(bucket).list('', {limit:200, sortBy:{column:'name',order:'asc'}});
     if(topErr) throw topErr;
@@ -4628,12 +4787,64 @@ async function vault_refresh(){
         allFiles.push({...entry, fullPath: entry.name, folder: ''});
       }
     }
-    allFiles.sort((a,b)=> new Date(b.created_at||0) - new Date(a.created_at||0));
-    vault_renderList(bucket, allFiles);
+    // Parse out category / detected fuel-economy date / clean display name once,
+    // up front, so both filtering, sorting and rendering can all reuse them.
+    allFiles.forEach(f=>{
+      let displayName = f.name, feDate = null;
+      const tagged = f.name.match(/^\d{4}-\d{2}-\d{2}T[\d-]+Z__D-([^_]+)__(.+)$/);
+      if(tagged){ feDate = tagged[1]; displayName = tagged[2]; }
+      else { displayName = f.name.replace(/^\d{4}-\d{2}-\d{2}T[\d-]+Z_+/,''); }
+      f.category = f.folder || 'Uncategorized';
+      f.feDate = feDate;
+      f.feDateObj = vault_parseFeDateStr(feDate);
+      f.displayName = displayName;
+    });
+    vault_rawFiles = allFiles;
+    vault_applyAndRender(bucket);
+    if(listwrap) listwrap.scrollTop = savedScroll;
   }catch(e){
     console.error('Vault list error:',e);
+    vault_rawFiles = [];
     list.innerHTML = `<div style="text-align:center;padding:30px;color:#b91c1c;font-size:12px">⚠ Could not load files: ${e.message}<br><span style="color:#9ca3af">Has the Storage bucket been created in Supabase yet?</span></div>`;
   }
+}
+
+// Populates the category filter dropdown from whatever categories are actually
+// present in the currently-loaded file list, then applies the active filter +
+// sort and renders. Called after every fetch and whenever the filter/sort changes.
+function vault_applyAndRender(bucket){
+  bucket = bucket || (vault_tab==='uploads' ? VAULT_UPLOADS_BUCKET : VAULT_REPORTS_BUCKET);
+
+  const sortSel = document.getElementById('vault_sort_sel');
+  if(sortSel) sortSel.value = vault_sort;
+
+  // Rebuild the filter dropdown's options to match what's actually here.
+  const sel = document.getElementById('vault_filter_sel');
+  if(sel){
+    const cats = [...new Set(vault_rawFiles.map(f=>f.category))].sort();
+    const prevVal = vault_filterCat;
+    sel.innerHTML = '<option value="all">All types</option>' + cats.map(c=>`<option value="${c.replace(/"/g,'&quot;')}">${c}</option>`).join('');
+    // Keep the previous selection only if it's still a valid category for this tab
+    sel.value = cats.includes(prevVal) ? prevVal : 'all';
+    vault_filterCat = sel.value;
+  }
+
+  let files = vault_filterCat==='all' ? vault_rawFiles.slice() : vault_rawFiles.filter(f=>f.category===vault_filterCat);
+
+  files.sort((a,b)=>{
+    if(vault_sort==='upload_asc')  return new Date(a.created_at||0) - new Date(b.created_at||0);
+    if(vault_sort==='upload_desc') return new Date(b.created_at||0) - new Date(a.created_at||0);
+    if(vault_sort==='fedate_asc' || vault_sort==='fedate_desc'){
+      // Files without a detected report date sort to the bottom regardless of direction.
+      if(!a.feDateObj && !b.feDateObj) return new Date(b.created_at||0) - new Date(a.created_at||0);
+      if(!a.feDateObj) return 1;
+      if(!b.feDateObj) return -1;
+      return vault_sort==='fedate_asc' ? (a.feDateObj-b.feDateObj) : (b.feDateObj-a.feDateObj);
+    }
+    return 0;
+  });
+
+  vault_renderList(bucket, files);
 }
 
 function vault_renderList(bucket, files){
@@ -4651,11 +4862,17 @@ function vault_renderList(bucket, files){
   list.innerHTML = files.map(f=>{
     const sizeKb = f.metadata?.size ? (f.metadata.size/1024).toFixed(1)+' KB' : '';
     const date = f.created_at ? new Date(f.created_at).toLocaleString('en-IN',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}) : '';
-    const displayName = f.name.replace(/^\d{4}-\d{2}-\d{2}T[\d-]+Z_/,''); // strip our timestamp prefix for readability
+    const displayName = f.displayName, feDate = f.feDate, category = f.category;
+    const cs = vault_categoryStyle(category);
+    const badge = `<span style="display:inline-block;font-size:9px;font-weight:700;padding:2px 8px;border-radius:5px;letter-spacing:.3px;white-space:nowrap;background:${cs.bg};color:${cs.fg};border:1px solid ${cs.bd}">${category.toUpperCase()}</span>`;
+    const feDateBadge = feDate ? `<span style="display:inline-block;font-size:9px;font-weight:700;padding:2px 8px;border-radius:5px;letter-spacing:.3px;white-space:nowrap;background:#f0fdf4;color:#15803d;border:1px solid #bbf7d0">📅 ${feDate}</span>` : '';
     return `<div style="border:1px solid #e5e7eb;border-radius:10px;padding:12px 16px;margin-bottom:10px;background:#fff;display:flex;align-items:center;justify-content:space-between;gap:12px">
       <div style="flex:1;min-width:0">
-        <div style="font-size:13px;font-weight:700;color:#0f172a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">📄 ${displayName}</div>
-        <div style="font-size:10px;color:#6b7280;margin-top:3px">${f.folder?f.folder+' · ':''}${date}${sizeKb?' · '+sizeKb:''}</div>
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+          ${badge}${feDateBadge}
+          <span style="font-size:13px;font-weight:700;color:#0f172a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">📄 ${displayName}</span>
+        </div>
+        <div style="font-size:10px;color:#6b7280;margin-top:5px">${feDate?'Fuel eco date: '+feDate+' · ':''}Uploaded: ${date}${sizeKb?' · '+sizeKb:''}</div>
       </div>
       <div style="display:flex;gap:6px;flex-shrink:0">
         <button type="button" onclick="vault_download('${bucket}','${f.fullPath.replace(/'/g,"\\'")}','${displayName.replace(/'/g,"\\'")}')" title="Download"
@@ -4665,6 +4882,15 @@ function vault_renderList(bucket, files){
       </div>
     </div>`;
   }).join('');
+}
+
+function vault_onSortChange(sel){
+  vault_sort = sel.value;
+  vault_applyAndRender();
+}
+function vault_onFilterChange(sel){
+  vault_filterCat = sel.value;
+  vault_applyAndRender();
 }
 
 async function vault_download(bucket, path, niceName){
@@ -4707,8 +4933,9 @@ async function vault_manualUploadFile(input){
   const bucket = vault_tab==='uploads' ? VAULT_UPLOADS_BUCKET : VAULT_REPORTS_BUCKET;
   const username = localStorage.getItem('etrackpro_username') || cloud_getUsername();
   if(!username) return;
+  const category = vault_tab==='uploads' ? 'Manual Upload' : 'Manual Report';
   dm_showToast('⬆ Uploading…','#0e7490');
-  await vault_backgroundUpload(bucket, file, username);
+  await vault_backgroundUpload(bucket, file, category);
   dm_showToast('✓ Uploaded to vault','#059669');
   vault_refresh();
 }
@@ -4789,7 +5016,7 @@ function p6_download(){
   const d=new Date();
   const _p6Fn='FE_Merged_Datewise_'+String(d.getDate()).padStart(2,'0')+String(d.getMonth()+1).padStart(2,'0')+'.xlsx';
   XLSX.writeFile(wb,_p6Fn,{bookType:'xlsx',cellStyles:true});
-  vault_saveXlsxWorkbook(wb,_p6Fn);
+  vault_saveXlsxWorkbook(wb,_p6Fn,'FE Merged');
 }
 
 // ════════════════════════════════
@@ -5219,7 +5446,7 @@ async function p7_download(){
   a.href     = url;
   a.download = 'Consolidated_'+String(d.getDate()).padStart(2,'0')+String(d.getMonth()+1).padStart(2,'0')+'.xlsx';
   a.click();
-  vault_saveReportBlob(blob, a.download);
+  vault_saveReportBlob(blob, a.download, 'Consolidated');
   setTimeout(()=>URL.revokeObjectURL(url), 2000);
 }
 
@@ -5554,46 +5781,73 @@ async function p7_download(){
 
 <!-- ═══ FILE VAULT MODAL ═══ -->
 <div id="vault_modal" style="display:none;position:fixed;inset:0;z-index:10000;
-  background:rgba(0,0,0,.6);backdrop-filter:blur(5px);
-  align-items:center;justify-content:center;font-family:'DM Sans',sans-serif">
-  <div style="background:#fff;border:2px solid #7c3aed;border-radius:16px;
-    width:780px;max-width:95vw;max-height:90vh;display:flex;flex-direction:column;
-    box-shadow:0 25px 70px rgba(0,0,0,.4);overflow:hidden">
+  background:#fff;
+  align-items:stretch;justify-content:stretch;font-family:'DM Sans',sans-serif">
+  <div style="background:#fff;border:none;border-radius:0;
+    width:100%;max-width:100%;height:100%;max-height:100%;display:flex;flex-direction:column;
+    box-shadow:none;overflow:hidden">
     <!-- Header -->
-    <div style="padding:18px 24px;border-bottom:2px solid #ede9fe;background:linear-gradient(135deg,#7c3aed,#a78bfa);color:#fff;display:flex;align-items:center;justify-content:space-between;gap:12px">
-      <div>
-        <div id="vault_title" style="font-family:'Bebas Neue',sans-serif;font-size:20px;letter-spacing:1.8px">📤 Uploaded Files</div>
-        <div id="vault_sub" style="font-size:11px;opacity:.9;margin-top:3px">Original Fill-Drain / Fuel Economy / Site Diesel files, backed up automatically on upload</div>
+    <div style="padding:22px 40px;border-bottom:2px solid #ede9fe;background:linear-gradient(135deg,#7c3aed,#a78bfa);color:#fff;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-shrink:0">
+      <div style="max-width:1100px;margin:0 auto;width:100%;display:flex;align-items:center;justify-content:space-between;gap:12px">
+        <div>
+          <div id="vault_title" style="font-family:'Bebas Neue',sans-serif;font-size:24px;letter-spacing:1.8px">📤 Uploaded Files</div>
+          <div id="vault_sub" style="font-size:12px;opacity:.9;margin-top:3px">Original Fill-Drain / Fuel Economy / Site Diesel files, backed up automatically on upload</div>
+        </div>
+        <button type="button" onclick="vault_close()" title="Close"
+          style="background:rgba(255,255,255,.2);border:none;color:#fff;font-size:22px;width:38px;height:38px;border-radius:8px;cursor:pointer;line-height:1;transition:background .15s;flex-shrink:0" onmouseover="this.style.background='rgba(255,255,255,.3)'" onmouseout="this.style.background='rgba(255,255,255,.2)'">✕</button>
       </div>
-      <button type="button" onclick="vault_close()" title="Close"
-        style="background:rgba(255,255,255,.2);border:none;color:#fff;font-size:20px;width:32px;height:32px;border-radius:7px;cursor:pointer;line-height:1;transition:background .15s" onmouseover="this.style.background='rgba(255,255,255,.3)'" onmouseout="this.style.background='rgba(255,255,255,.2)'">✕</button>
     </div>
 
     <!-- Tabs -->
-    <div style="display:flex;gap:4px;padding:12px 24px 0;background:#faf5ff;border-bottom:1px solid #e5e7eb">
-      <button type="button" id="vault_tab_uploads" onclick="vault_switchTab('uploads')" class="active"
-        style="padding:9px 18px;border:none;border-radius:8px 8px 0 0;font-size:12px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif;background:#fff;color:#7c3aed;border-bottom:2px solid #7c3aed">📤 Uploaded Files</button>
-      <button type="button" id="vault_tab_reports" onclick="vault_switchTab('reports')"
-        style="padding:9px 18px;border:none;border-radius:8px 8px 0 0;font-size:12px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif;background:transparent;color:#6b7280">📊 Final Reports</button>
+    <div style="display:flex;justify-content:center;padding:0 40px;background:#faf5ff;border-bottom:1px solid #e5e7eb;flex-shrink:0">
+      <div style="display:flex;gap:4px;padding-top:12px;max-width:1100px;width:100%">
+        <button type="button" id="vault_tab_uploads" onclick="vault_switchTab('uploads')" class="active"
+          style="padding:9px 18px;border:none;border-radius:8px 8px 0 0;font-size:12px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif;background:#fff;color:#7c3aed;border-bottom:2px solid #7c3aed">📤 Uploaded Files</button>
+        <button type="button" id="vault_tab_reports" onclick="vault_switchTab('reports')"
+          style="padding:9px 18px;border:none;border-radius:8px 8px 0 0;font-size:12px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif;background:transparent;color:#6b7280">📊 Final Reports</button>
+      </div>
+    </div>
+
+    <!-- Sort + filter controls -->
+    <div style="display:flex;justify-content:center;padding:14px 40px 0;background:#fff;flex-shrink:0">
+      <div style="max-width:1100px;width:100%;display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+        <label style="font-size:11px;font-weight:700;color:#6b7280;display:flex;align-items:center;gap:6px">SORT
+          <select id="vault_sort_sel" onchange="vault_onSortChange(this)" style="font-size:11px;font-weight:600;color:#0f172a;border:1.5px solid #ddd6fe;border-radius:7px;padding:6px 10px;font-family:'DM Sans',sans-serif;background:#fff;cursor:pointer">
+            <option value="upload_desc">Upload date (newest first)</option>
+            <option value="upload_asc">Upload date (oldest first)</option>
+            <option value="fedate_desc">Report date (newest first)</option>
+            <option value="fedate_asc">Report date (oldest first)</option>
+          </select>
+        </label>
+        <label style="font-size:11px;font-weight:700;color:#6b7280;display:flex;align-items:center;gap:6px">TYPE
+          <select id="vault_filter_sel" onchange="vault_onFilterChange(this)" style="font-size:11px;font-weight:600;color:#0f172a;border:1.5px solid #ddd6fe;border-radius:7px;padding:6px 10px;font-family:'DM Sans',sans-serif;background:#fff;cursor:pointer;min-width:160px">
+            <option value="all">All types</option>
+          </select>
+        </label>
+      </div>
     </div>
 
     <!-- File list -->
-    <div style="flex:1;overflow-y:auto;padding:18px 24px;background:#fff">
-      <div id="vault_list"></div>
-      <div id="vault_empty" style="text-align:center;padding:50px 20px;color:#9ca3af">
-        <div style="font-size:40px;margin-bottom:12px">📁</div>
-        <div style="font-size:14px;font-weight:600;color:#6b7280">No files yet</div>
-        <div style="font-size:12px;color:#9ca3af;margin-top:6px">Files upload here automatically — or add one manually below</div>
+    <div id="vault_listwrap" style="flex:1;overflow-y:auto;padding:14px 40px 22px;background:#fff;display:flex;justify-content:center">
+      <div style="max-width:1100px;width:100%">
+        <div id="vault_list"></div>
+        <div id="vault_empty" style="text-align:center;padding:80px 20px;color:#9ca3af">
+          <div style="font-size:44px;margin-bottom:12px">📁</div>
+          <div style="font-size:15px;font-weight:600;color:#6b7280">No files yet</div>
+          <div style="font-size:12px;color:#9ca3af;margin-top:6px">Files upload here automatically — or add one manually below</div>
+        </div>
       </div>
     </div>
 
     <!-- Footer -->
-    <div style="padding:14px 24px;border-top:1px solid #e5e7eb;background:#f9fafb;display:flex;align-items:center;justify-content:space-between">
-      <div id="vault_count" style="font-size:11px;color:#6b7280;font-weight:600">0 files</div>
-      <div style="display:flex;gap:8px">
-        <input type="file" id="vault_manual_fi" style="display:none" onchange="vault_manualUploadFile(this)">
-        <button type="button" onclick="vault_manualUploadPick()" style="background:#fff;color:#7c3aed;border:1.5px solid #ddd6fe;border-radius:7px;padding:7px 14px;font-size:11px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif">⬆ UPLOAD FILE</button>
-        <button type="button" onclick="vault_refresh()" style="background:#fff;color:#7c3aed;border:1.5px solid #ddd6fe;border-radius:7px;padding:7px 14px;font-size:11px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif">🔄 REFRESH</button>
+    <div style="padding:14px 40px;border-top:1px solid #e5e7eb;background:#f9fafb;display:flex;justify-content:center;flex-shrink:0">
+      <div style="max-width:1100px;width:100%;display:flex;align-items:center;justify-content:space-between">
+        <div id="vault_count" style="font-size:11px;color:#6b7280;font-weight:600">0 files</div>
+        <div style="display:flex;gap:8px">
+          <input type="file" id="vault_manual_fi" style="display:none" onchange="vault_manualUploadFile(this)">
+          <button type="button" onclick="vault_manualUploadPick()" style="background:#fff;color:#7c3aed;border:1.5px solid #ddd6fe;border-radius:7px;padding:7px 14px;font-size:11px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif">⬆ UPLOAD FILE</button>
+          <button type="button" onclick="vault_refresh()" style="background:#fff;color:#7c3aed;border:1.5px solid #ddd6fe;border-radius:7px;padding:7px 14px;font-size:11px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif">🔄 REFRESH</button>
+        </div>
       </div>
     </div>
   </div>
@@ -5966,7 +6220,7 @@ async function p9_download(){
   a.href     = url;
   a.download = 'TheftSummary_'+String(d.getDate()).padStart(2,'0')+String(d.getMonth()+1).padStart(2,'0')+d.getFullYear()+'.xlsx';
   a.click();
-  vault_saveReportBlob(blob, a.download);
+  vault_saveReportBlob(blob, a.download, 'Theft Summary');
   setTimeout(()=>URL.revokeObjectURL(url),2000);
 }
 </script>
